@@ -3,6 +3,8 @@ import numpy as np
 import plotly.express as px
 import plotly.io as pio
 import streamlit as st
+import requests
+from io import StringIO
 
 
 def check_password():
@@ -34,7 +36,226 @@ def check_password():
         return True
 
 if check_password():
-    st.header('hello, world!')
-    st.write("Here goes your normal Streamlit app...")
-    st.button("Click me")
+    data = {
+    'token': '887B6131ACB0E6DE715DCD8A35E839B9',
+    'content': 'record',
+    'format': 'csv',
+    'type': 'flat',
+    'csvDelimiter': '',
+    'rawOrLabel': 'label',
+    'rawOrLabelHeaders': 'raw',
+    'exportCheckboxLabel': 'false',
+    'exportSurveyFields': 'true',
+    'exportDataAccessGroups': 'false',
+    'returnFormat': 'json'
+}
+    r = requests.post('https://redcap.ucsf.edu/api/',data=data)
+    df = pd.read_csv(StringIO(r.text))
+    
+    st.set_page_config(layout="wide")
+    pd.options.plotting.backend = "plotly"
+    pio.templates.default = 'simple_white'
+
+    raw = pd.read_csv('raw.csv')
+    df = pd.read_csv('labels.csv')
+    df.columns = raw.columns 
+
+    legendict = dict(orientation='h', 
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1)
+
+    def hist1(j): #for quantitative variables
+        fig = px.histogram(df, x=j, text_auto=True)
+        fig.update_layout(bargap=0.2)
+        st.plotly_chart(fig, use_container_width=True)
+
+    def hist2(j): #for qualitative variables
+        fig = px.histogram(df, x=j, text_auto=True)
+        fig.update_layout(xaxis={'categoryorder':'total descending'})
+        st.plotly_chart(fig, use_container_width=True)
+
+    def npct(i):
+        taba=df[i].value_counts()
+        taba = taba.rename('n')
+        tabb=df[i].value_counts(normalize=True)
+        tabb = tabb.rename('%')
+        tab2 = pd.concat([taba, tabb], axis=1)
+        st.caption('Table of ' + i + ' descriptives')
+        st.table(tab2)
+        
+    spo2list = ['spo2','spo2_v2','spo2_v3','spo2_v4','spo2_v5','spo2_v6', 'spo2_v7','spo2_v8','spo2_v9','spo2_v10']
+    so2list = ['so2','so2_v2','so2_v3','so2_v4','so2_v5','so2_v6', 'so2_v7','so2_v8','so2_v9','so2_v10']
+    artmaplist = ['art_map', 'art_map_v2', 'art_map_v3','art_map_v4','art_map_v5', 'art_map_v6', 'art_map_v7', 'art_map_v8','art_map_v9','art_map_v10']
+
+
+    ########################################
+    ############## scorecards
+    ########################################
+    enrolled = len(df['study_id'].value_counts())
+    averageage = round(df['age'].mean(),1)
+    commonrace = df['race'].value_counts().index[0]
+
+    st.title('EquiOx study dashboard')
+
+    one, two, three = st.columns (3)
+    one.metric(label='Enrolled patients', value=enrolled)
+    two.metric(label='Average Age', value=averageage)
+    three.metric(label='Most common race', value=commonrace)
+
+    ########################################
+    st.write('''***Welcome to EquiOx***''')
+
+    st.write('The EquiOx study is an FDA sponsored clinical trial meant to evaluate...')
+
+    st.info('How is the study going? Use the tabs below to explore our data.', icon="ℹ️")
+
+    ########################################
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Demographics', 'Fitzpatrick', 'ABG values','Clinical status', '    '])
+
+    with tab1:
+        st.subheader('Demographics')
+        descriptives = df.describe()
+        descriptives = descriptives[['age','bmi']].replace()
+
+        first, left, right = st.columns([2,5,5])
+
+        with first:
+            st.subheader('')
+        with left:
+            st.subheader('BMI')
+        with right:
+            st.subheader('Age')
+
+        first, left, right = st.columns([2,5,5])
+        with first:
+            st.write('**Descriptive characteristics:**')
+            st.table(descriptives)
+
+        with left:
+            hist1('bmi')
+            with st.expander('What do we mean?'):
+                st.info('BMI is a measure of the weight to height ratio. Though not without limitations, it is a commonly used measure.')
+        with right:
+            hist1('age')
+
+        st.subheader('Race')
+        with st.expander('What do we mean?'):
+                st.info('Race used here is a term pulled from the medical chart. It is a combination of patient reported, or sometimes staff-identified patient race')
+        
+        first, left = st.columns([8,4])
+        with first:
+            hist2('race')
+        with left:
+            npct('race')
+
+        one, two = st.columns (2)
+        with one:
+            st.subheader('Gender')
+        with two:
+            st.subheader('Primary Team')
+
+        one, two, three, four = st.columns([4,2,4,2])
+        with one:
+            hist2('gender')
+
+        with two:
+            npct('gender')
+
+        with three:
+            hist2('care_service')
+        with four:
+            npct('care_service')
+
+    ########################################
+    ########### fitzpatrick
+    ########################################
+    with tab2:
+        st.subheader('Fitzpatrick scores')
+
+        first, left = st.columns([8,4])
+        with first:
+            fig = px.histogram(df, x='fitzpatrick')
+            fig.update_layout(xaxis={'categoryorder':'category ascending'})
+            fig.update_layout(legend=legendict)
+            st.plotly_chart(fig, use_container_width=True)
+
+        with left:
+            npct('fitzpatrick')    
+
+        st.write('### How do fitzpatrick scores correlate with race?')
+        racebytone = pd.crosstab(df['race'], df['fitzpatrick'])
+        st.table(racebytone)
+        fig = px.imshow(racebytone, color_continuous_scale='aggrnyl', text_auto=True, aspect='auto')
+        st.plotly_chart(fig, use_container_width=True)
+    ########################################
+    ########### spo2 and so2 analysis
+    ########################################
+    with tab3:
+        st.subheader('Number of ABGs per participant')
+        t1 = df['study_id'].value_counts()
+        fig = px.histogram(t1, x='study_id', text_auto=True)
+        st.plotly_chart(fig)    
+
+        ###########################calculations and dfs
+
+        # create long spo2 df
+        t1 = df[['study_id']+spo2list]
+        t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
+        spo2long = t1.melt(id_vars='study_id', value_name='value')
+
+        # create long so2 df
+        t1 = df[['study_id']+so2list]
+        t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
+        so2long = t1.melt(id_vars='study_id', value_name='value')
+
+        # combined df for scatterplot
+        spo2so2long = spo2long.join(so2long, lsuffix='_spo2', rsuffix='_so2')
+
+        ####################################spo2 and so2 layout
+        st.header('SPO2 analysis')
+        st.subheader('Frequency of Spo2 readings')
+
+        left, right = st.columns([10,2])
+
+        with left:
+            fig = px.histogram(spo2long, x='value', text_auto=True)
+            fig.update_traces(xbins=dict( # bins used for histogram
+            size=1
+            ))
+            st.plotly_chart(fig, use_container_width=True)
+        with right:
+            st.table(spo2long['value'].describe())
+
+        ######## now compare spo2, and so2
+        st.subheader('Paired Spo2/SO2 measurements')
+        fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'})
+        st.plotly_chart(fig, use_container_width=True)
+
+    ########################################
+    ########### clinical status
+    ########################################
+
+    with tab4:
+        one, two = st.columns(2)
+        with one:
+            st.subheader('On Vasopressors?')
+        with two:
+            st.subheader('Supplemental oxygen use')
+
+        one, two, three, four = st.columns([4,2,4,2])
+        with one:    
+            fig = px.histogram(df, x='on_vasopressors')
+            fig.update_layout(legend=legendict)
+            st.plotly_chart(fig, use_container_width=True)
+        with two:
+            npct('on_vasopressors')
+        with three:
+            fig = px.histogram(df, x='supplemental_oxygen_type')
+            fig.update_layout(legend=legendict)
+            st.plotly_chart(fig, use_container_width=True)
+        with four:
+            npct('supplemental_oxygen_type')
     
