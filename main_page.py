@@ -6,7 +6,6 @@ import streamlit as st
 import requests
 from io import StringIO
 
-
 def check_password():
     """Returns `True` if the user had the correct password."""
 
@@ -55,10 +54,6 @@ if check_password():
     st.set_page_config(layout="wide")
     pd.options.plotting.backend = "plotly"
     pio.templates.default = 'simple_white'
-
-    raw = pd.read_csv('raw.csv')
-    df = pd.read_csv('labels.csv')
-    df.columns = raw.columns 
 
     legendict = dict(orientation='h', 
         yanchor="bottom",
