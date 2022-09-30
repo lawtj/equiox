@@ -93,21 +93,29 @@ if check_password():
     ########################################
     enrolled = len(df['study_id'].value_counts())
     averageage = round(df['age'].mean(),1)
-    commonrace = df['race'].value_counts().index[0]
-
+    totalabgs = len(df)
     st.title('EquiOx study dashboard')
 
-    one, two, three = st.columns (3)
+    one, two, three, four = st.columns (4)
     one.metric(label='Enrolled patients', value=enrolled)
     two.metric(label='Average Age', value=averageage)
-    three.metric(label='Most common race', value=commonrace)
+    three.metric(label='Total ABGs', value=totalabgs)
+    four.metric(label='Avg ABGs per patient', value=round(totalabgs/enrolled, 1))
 
     ########################################
-    st.write('''***Welcome to EquiOx***''')
+    one, two = st.columns (2)
+    with one:
+        st.subheader('Number of ABGs per participant')
+        t1 = df['study_id'].value_counts()
+        fig = px.histogram(t1, x='study_id', text_auto=True)
+        st.plotly_chart(fig) 
+        st.caption('x axis, # of patients with given value. y axis, # of abgs for that number of patients')
 
-    st.write('The EquiOx study is an FDA sponsored clinical trial meant to evaluate...')
-
-    st.info('How is the study going? Use the tabs below to explore our data.', icon="ℹ️")
+    
+    with two:
+        st.header('''***Welcome to EquiOx***''')
+        st.write('The EquiOx study is an FDA sponsored clinical trial meant to evaluate...')
+        st.info('How is the study going? Use the tabs below to explore our data.', icon="ℹ️")
 
     ########################################
 
@@ -191,11 +199,7 @@ if check_password():
     ########################################
     ########### spo2 and so2 analysis
     ########################################
-    with tab3:
-        st.subheader('Number of ABGs per participant')
-        t1 = df['study_id'].value_counts()
-        fig = px.histogram(t1, x='study_id', text_auto=True)
-        st.plotly_chart(fig)    
+    with tab3:   
 
         ###########################calculations and dfs
 
@@ -230,7 +234,7 @@ if check_password():
         ######## now compare spo2, and so2
         st.subheader('Paired Spo2/SO2 measurements')
         fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=False)
 
     ########################################
     ########### clinical status
