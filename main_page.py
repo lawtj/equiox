@@ -84,8 +84,48 @@ if check_password():
     so2list = ['so2','so2_v2','so2_v3','so2_v4','so2_v5','so2_v6', 'so2_v7','so2_v8','so2_v9','so2_v10']
     artmaplist = ['art_map', 'art_map_v2', 'art_map_v3','art_map_v4','art_map_v5', 'art_map_v6', 'art_map_v7', 'art_map_v8','art_map_v9','art_map_v10']
 
-    ############################################# data cleaning
+    ########################################
+    ############## data cleaning
+    ########################################
     df['age'] = df.apply(lambda x: 89 if x['age']>=90 else x['age'], axis=1) #censor ages above 90 -> 89
+
+    ###########################calculations and dfs
+
+    # create long spo2 df
+    t1 = df[['study_id']+spo2list]
+    t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
+    spo2long = t1.melt(id_vars='study_id', value_name='value')
+
+    # create long so2 df
+    t1 = df[['study_id']+so2list]
+    t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
+    so2long = t1.melt(id_vars='study_id', value_name='value')
+
+    # combined df for scatterplot
+    spo2so2long = spo2long.join(so2long, lsuffix='_spo2', rsuffix='_so2')
+
+    #code records so that 1 = spo2 only, 2= so2 only, 3 = both, 0 = neither
+    t1 = df[['study_id']+spo2list+so2list]
+    t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
+    t2=t1.copy()
+
+    # recode values for spo2 = 1, so2 = 2
+    for i in spo2list:
+        t1[i] = t1[i].apply(lambda x: 1 if x>=1 else x)
+    for i in so2list:
+        t1[i] = t1[i].apply(lambda x: 2 if x>=1 else x)
+    # both values = 3
+    t1['sum']= t1[spo2list+so2list].sum(axis=1)
+
+    # put sum back into original dataframe, t3 so one can see the spo2/so2 values 
+    t3 = t1['sum']
+    t2 = t2.join(t3)
+    
+    #print records with ONLY so2 or ONLY spo2
+    #st.write(t2[((t2['sum']==1) | (t2['sum']==2))])
+    
+    #summarize number of records with each kind of response
+    #st.write(t1['sum'].value_counts())
 
 
     ########################################
@@ -93,7 +133,7 @@ if check_password():
     ########################################
     enrolled = len(df['study_id'].value_counts())
     averageage = round(df['age'].mean(),1)
-    totalabgs = len(df)
+    totalabgs = len(t1[((t1['sum']==2) | (t1['sum']==3))])
     st.title('EquiOx study dashboard')
 
     one, two, three, four = st.columns (4)
@@ -103,19 +143,27 @@ if check_password():
     four.metric(label='Avg ABGs per patient', value=round(totalabgs/enrolled, 1))
 
     ########################################
-    one, two = st.columns (2)
-    with one:
-        st.subheader('Number of ABGs per participant')
-        t1 = df['study_id'].value_counts()
-        fig = px.histogram(t1, x='study_id', text_auto=True)
-        st.plotly_chart(fig) 
-        st.caption('x axis, # of patients with given value. y axis, # of abgs for that number of patients')
-
-    
+    ########################################
+    ############## above the fold header
+    ########################################
+    one, two, three = st.columns ([4,6,2])
     with two:
-        st.header('''***Welcome to EquiOx***''')
+        st.subheader('Frequency of Spo2 readings')
+        fig = px.histogram(spo2long, x='value',  text_auto=True, labels={'value':'SpO2', 'count':'# of patients'})
+        fig.update_traces(xbins=dict( # bins used for histogram
+        size=1
+        ))
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with one:
+        st.subheader('''***Welcome to EquiOx***''')
         st.write('The EquiOx study is an FDA sponsored clinical trial meant to evaluate...')
         st.info('How is the study going? Use the tabs below to explore our data.', icon="ℹ️")
+    
+    with three:
+        st.subheader('')
+        with st.expander('Descriptive Statistics'):
+            st.table(spo2long['value'].describe())
 
     ########################################
 
@@ -200,36 +248,15 @@ if check_password():
     ########### spo2 and so2 analysis
     ########################################
     with tab3:   
-
-        ###########################calculations and dfs
-
-        # create long spo2 df
-        t1 = df[['study_id']+spo2list]
-        t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
-        spo2long = t1.melt(id_vars='study_id', value_name='value')
-
-        # create long so2 df
-        t1 = df[['study_id']+so2list]
-        t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
-        so2long = t1.melt(id_vars='study_id', value_name='value')
-
-        # combined df for scatterplot
-        spo2so2long = spo2long.join(so2long, lsuffix='_spo2', rsuffix='_so2')
-
         ####################################spo2 and so2 layout
         st.header('SPO2 analysis')
-        st.subheader('Frequency of Spo2 readings')
 
-        left, right = st.columns([10,2])
-
-        with left:
-            fig = px.histogram(spo2long, x='value', text_auto=True)
-            fig.update_traces(xbins=dict( # bins used for histogram
-            size=1
-            ))
-            st.plotly_chart(fig, use_container_width=True)
-        with right:
-            st.table(spo2long['value'].describe())
+        st.subheader('Number of ABGs per participant')
+        t1 = df['study_id'].value_counts()
+        fig = px.histogram(t1, x='study_id', text_auto=True)
+        st.plotly_chart(fig) 
+        st.caption('x axis, # of patients with given value. y axis, # of abgs for that number of patients')
+            
 
         ######## now compare spo2, and so2
         st.subheader('Paired Spo2/SO2 measurements')
