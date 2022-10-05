@@ -157,7 +157,7 @@ if check_password():
     
     with one:
         st.subheader('''***Welcome to EquiOx***''')
-        st.write('The EquiOx study is an FDA sponsored clinical trial meant to evaluate...')
+        st.write('The EquiOx study is an FDA sponsored clinical trial.')
         st.info('How is the study going? Use the tabs below to explore our data.', icon="ℹ️")
     
     with three:
