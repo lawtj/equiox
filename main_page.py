@@ -169,7 +169,7 @@ if check_password():
 
     ########################################
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Demographics', 'Fitzpatrick', 'ABG values','Clinical status', 'Validation'])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Demographics', 'Fitzpatrick', 'ABG values','Clinical status', ' '])
 
     with tab1:
         st.subheader('Demographics')
