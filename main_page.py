@@ -83,6 +83,7 @@ if check_password():
     spo2list = ['spo2','spo2_v2','spo2_v3','spo2_v4','spo2_v5','spo2_v6', 'spo2_v7','spo2_v8','spo2_v9','spo2_v10']
     so2list = ['so2','so2_v2','so2_v3','so2_v4','so2_v5','so2_v6', 'so2_v7','so2_v8','so2_v9','so2_v10']
     artmaplist = ['art_map', 'art_map_v2', 'art_map_v3','art_map_v4','art_map_v5', 'art_map_v6', 'art_map_v7', 'art_map_v8','art_map_v9','art_map_v10']
+    stabilitylist = ['so2_period_of_stability', 'spo2_period_of_stability_v2', 'spo2_period_of_stability_v3', 'spo2_period_of_stability_v4', 'spo2_period_of_stability_v5', 'spo2_period_of_stability_v6', 'spo2_period_of_stability_v7', 'spo2_period_of_stability_v8', 'spo2_period_of_stability_v9', 'spo2_period_of_stability_v10']
 
     ########################################
     ############## data cleaning
@@ -101,8 +102,14 @@ if check_password():
     t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
     so2long = t1.melt(id_vars='study_id', value_name='value')
 
+    # create long period of stability df
+    t1 = df[['study_id']+stabilitylist]
+    stabilitylong = t1.melt(id_vars='study_id', value_name='value')
+
     # combined df for scatterplot
     spo2so2long = spo2long.join(so2long, lsuffix='_spo2', rsuffix='_so2')
+    spo2so2long = spo2so2long.join(stabilitylong['value'])
+    spo2so2long['value'].fillna('None', inplace=True)
 
     #code records so that 1 = spo2 only, 2= so2 only, 3 = both, 0 = neither
     t1 = df[['study_id']+spo2list+so2list]
@@ -169,7 +176,7 @@ if check_password():
 
     ########################################
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Demographics', 'Fitzpatrick', 'ABG values','Clinical status', ' '])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Demographics', 'Fitzpatrick', 'ABG values','Clinical status', 'Analysis'])
 
     with tab1:
         st.subheader('Demographics')
@@ -206,6 +213,13 @@ if check_password():
             hist2('race')
         with left:
             npct('race')
+
+        st.subheader('Ethnicity')
+        one, two = st.columns([8,4])
+        with one:
+            hist2('ethnicity')
+        with two:
+            npct('ethnicity')
 
         one, two = st.columns (2)
         with one:
@@ -260,12 +274,11 @@ if check_password():
             fig = px.histogram(t1, x='study_id', text_auto=True)
             fig.update_layout(xaxis_title="# ABGs", yaxis_title="# subjects")
             st.plotly_chart(fig) 
-            st.caption('x axis, # of patients with given value. y axis, # of abgs for that number of patients')
             
         with two:
             ######## now compare spo2, and so2
             st.subheader('Paired Spo2/SO2 measurements')
-            fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'})
+            fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'}, color='value')
             fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
             st.plotly_chart(fig, use_container_width=False)
 
@@ -299,6 +312,8 @@ if check_password():
     ########################################
 
     with tab5:
+        st.write(spo2so2long)
+
         st.write('''
         - 0 = neither spo2 nor so2. 
         - 1 = SpO2 only. 
