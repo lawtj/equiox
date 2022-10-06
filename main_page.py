@@ -127,7 +127,6 @@ if check_password():
     #summarize number of records with each kind of response
     #st.write(t1['sum'].value_counts())
 
-
     ########################################
     ############## scorecards
     ########################################
@@ -153,6 +152,9 @@ if check_password():
         fig.update_traces(xbins=dict( # bins used for histogram
         size=1
         ))
+        fig.update_layout(
+            yaxis_title="# of measurements", xaxis_title="SpO2"
+        )
         st.plotly_chart(fig, use_container_width=True)
     
     with one:
@@ -167,7 +169,7 @@ if check_password():
 
     ########################################
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Demographics', 'Fitzpatrick', 'ABG values','Clinical status', '    '])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Demographics', 'Fitzpatrick', 'ABG values','Clinical status', 'Validation'])
 
     with tab1:
         st.subheader('Demographics')
@@ -251,17 +253,21 @@ if check_password():
         ####################################spo2 and so2 layout
         st.header('SPO2 analysis')
 
-        st.subheader('Number of ABGs per participant')
-        t1 = df['study_id'].value_counts()
-        fig = px.histogram(t1, x='study_id', text_auto=True)
-        st.plotly_chart(fig) 
-        st.caption('x axis, # of patients with given value. y axis, # of abgs for that number of patients')
+        one, two = st.columns(2)
+        with one:
+            st.subheader('Number of ABGs per participant')
+            t1 = df['study_id'].value_counts()
+            fig = px.histogram(t1, x='study_id', text_auto=True)
+            fig.update_layout(xaxis_title="# of subjects", yaxis_title="# of ABGs")
+            st.plotly_chart(fig) 
+            st.caption('x axis, # of patients with given value. y axis, # of abgs for that number of patients')
             
-
-        ######## now compare spo2, and so2
-        st.subheader('Paired Spo2/SO2 measurements')
-        fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'})
-        st.plotly_chart(fig, use_container_width=False)
+        with two:
+            ######## now compare spo2, and so2
+            st.subheader('Paired Spo2/SO2 measurements')
+            fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'})
+            fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
+            st.plotly_chart(fig, use_container_width=False)
 
     ########################################
     ########### clinical status
@@ -287,4 +293,16 @@ if check_password():
             st.plotly_chart(fig, use_container_width=True)
         with four:
             npct('supplemental_oxygen_type')
-    
+
+    ########################################
+    ########### validation
+    ########################################
+
+    with tab5:
+        st.write('''
+        - 0 = neither spo2 nor so2. 
+        - 1 = SpO2 only. 
+        - 2 = sO2 only, 
+        - 3 = both SpO2 and sO2
+        ''')
+        st.write(t2['sum'].value_counts())
