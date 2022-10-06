@@ -258,7 +258,7 @@ if check_password():
             st.subheader('Number of ABGs per participant')
             t1 = df['study_id'].value_counts()
             fig = px.histogram(t1, x='study_id', text_auto=True)
-            fig.update_layout(xaxis_title="# of subjects", yaxis_title="# of ABGs")
+            fig.update_layout(xaxis_title="# ABGs", yaxis_title="# subjects")
             st.plotly_chart(fig) 
             st.caption('x axis, # of patients with given value. y axis, # of abgs for that number of patients')
             
