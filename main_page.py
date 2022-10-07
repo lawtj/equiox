@@ -279,7 +279,17 @@ if check_password():
             ######## now compare spo2, and so2
             st.subheader('Paired Spo2/SO2 measurements')
             fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'}, color='value')
-            fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
+            fig.add_shape(type="line",
+                x0=0, y0=0, x1=100, y1=100,
+                line=dict(
+                    color="red",
+                    width=3,
+                    dash="dot",
+                )
+            )
+            fig.update_xaxes(range=[60, 105])
+            fig.update_yaxes(range=[60, 105])
+            #fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
             st.plotly_chart(fig, use_container_width=False)
 
     ########################################
