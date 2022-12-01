@@ -325,33 +325,66 @@ if check_password():
         ### examine only clinical samples
         st.subheader('Research vs clinical samples')
         st.write('Research only samples may sit longer at the lab, and may thus have a higher SO2. Can we compare clinical samples to research only samples?')
-        spo2so2long = spo2so2long[spo2so2long['collection_reason'] != 'None']
-        fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'},
-        facet_col='collection_reason', 
-        trendline='ols'
-        )
-
-        fig.add_shape(type="line",
-        col = 'all',row='all',
-            x0=0, y0=0, x1=100, y1=100,
-            line=dict(
-                color="black",
-                width=4,
-                dash="dot",
+        with st.expander('Show me'):
+            spo2so2long = spo2so2long[spo2so2long['collection_reason'] != 'None']
+            fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'},
+            facet_col='collection_reason', 
+            trendline='ols'
             )
-        )
-        fig.update_xaxes(range=[55, 105])
-        fig.update_yaxes(range=[55, 105])
-        #fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
-        st.plotly_chart(fig, use_container_width=True)
 
-        results = px.get_trendline_results(fig)
-        one, two = st.columns(2)
-        with one:
-            st.write(results.query("collection_reason == 'Clinically indicated'").px_fit_results.iloc[0].summary())
-        with two:
-            st.write(results.query("collection_reason == 'Research purposes only'").px_fit_results.iloc[0].summary())
+            fig.add_shape(type="line",
+            col = 'all',row='all',
+                x0=0, y0=0, x1=100, y1=100,
+                line=dict(
+                    color="black",
+                    width=4,
+                    dash="dot",
+                )
+            )
+            fig.update_xaxes(range=[55, 105])
+            fig.update_yaxes(range=[55, 105])
+            #fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
+            st.plotly_chart(fig, use_container_width=True)
 
+            results = px.get_trendline_results(fig)
+            one, two = st.columns(2)
+            with one:
+                st.write(results.query("collection_reason == 'Clinically indicated'").px_fit_results.iloc[0].summary())
+            with two:
+                st.write(results.query("collection_reason == 'Research purposes only'").px_fit_results.iloc[0].summary())
+        
+        st.write('The coefficient is being distorted by a few outliers in the Research only group. Let us remove Spo2 < 85.')
+
+        with st.expander('Show me'):
+            spo2so2long = spo2so2long[(
+                (spo2so2long['collection_reason'] != 'None') &
+                (spo2so2long['value_spo2'] >=85)
+                )]
+            fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'},
+            facet_col='collection_reason', 
+            trendline='ols'
+            )
+
+            fig.add_shape(type="line",
+            col = 'all',row='all',
+                x0=0, y0=0, x1=100, y1=100,
+                line=dict(
+                    color="black",
+                    width=4,
+                    dash="dot",
+                )
+            )
+            fig.update_xaxes(range=[55, 105])
+            fig.update_yaxes(range=[55, 105])
+            #fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
+            st.plotly_chart(fig, use_container_width=True)
+
+            results = px.get_trendline_results(fig)
+            one, two = st.columns(2)
+            with one:
+                st.write(results.query("collection_reason == 'Clinically indicated'").px_fit_results.iloc[0].summary())
+            with two:
+                st.write(results.query("collection_reason == 'Research purposes only'").px_fit_results.iloc[0].summary())
 
     ########################################
     ########### clinical status
