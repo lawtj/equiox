@@ -82,6 +82,16 @@ if check_password():
         
     spo2list = ['spo2','spo2_v2','spo2_v3','spo2_v4','spo2_v5','spo2_v6', 'spo2_v7','spo2_v8','spo2_v9','spo2_v10']
     so2list = ['so2','so2_v2','so2_v3','so2_v4','so2_v5','so2_v6', 'so2_v7','so2_v8','so2_v9','so2_v10']
+    collectionreasonlist = ['abg_collection_reason',
+    'abg_collection_reason_v2',
+    'abg_collection_reason_v3',
+    'abg_collection_reason_v4',
+    'abg_collection_reason_v5',
+    'abg_collection_reason_v6',
+    'abg_collection_reason_v7',
+    'abg_collection_reason_v8',
+    'abg_collection_reason_v9',
+    'abg_collection_reason_v10']
     artmaplist = ['art_map', 'art_map_v2', 'art_map_v3','art_map_v4','art_map_v5', 'art_map_v6', 'art_map_v7', 'art_map_v8','art_map_v9','art_map_v10']
     stabilitylist = ['so2_period_of_stability', 'spo2_period_of_stability_v2', 'spo2_period_of_stability_v3', 'spo2_period_of_stability_v4', 'spo2_period_of_stability_v5', 'spo2_period_of_stability_v6', 'spo2_period_of_stability_v7', 'spo2_period_of_stability_v8', 'spo2_period_of_stability_v9', 'spo2_period_of_stability_v10']
 
@@ -89,27 +99,47 @@ if check_password():
     ############## data cleaning
     ########################################
     df['age'] = df.apply(lambda x: 89 if x['age']>=90 else x['age'], axis=1) #censor ages above 90 -> 89
+    df = df[df['consent_complete'] != 'Incomplete'] #exclude those with incomplete consents
+    
+    keeplist = df[df['blood_sample_1_complete'] == 'Complete']['study_id'] # create list of study_ids who have a valid value for blood_sample_1
+    #df = df[df['study_id'].isin(keeplist)]
 
     ###########################calculations and dfs
 
     # create long spo2 df
     t1 = df[['study_id']+spo2list]
-    t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
+    t1[spo2list] = t1[spo2list].apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
     spo2long = t1.melt(id_vars='study_id', value_name='value')
 
     # create long so2 df
     t1 = df[['study_id']+so2list]
-    t1 = t1.apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
+    t1[so2list] = t1[so2list].apply(pd.to_numeric, errors='coerce') #surprise! someone has allowed non-int data into this field
     so2long = t1.melt(id_vars='study_id', value_name='value')
 
     # create long period of stability df
     t1 = df[['study_id']+stabilitylist]
     stabilitylong = t1.melt(id_vars='study_id', value_name='value')
 
+    # create long collection reason df
+    t1 = df[['study_id']+collectionreasonlist]
+    collectionreasonlong = t1.melt(id_vars='study_id', value_name='collection_reason')
+
+    # create long fitzpatrick
+    ############## NOTE THIS IS NOT WORKING 
+    ############### right now its only matching fitzpatrick to v1 visits, because thats when its recorded 
+    ############### need to get a list of fitzpatrick and study id, and propagate it to all visits
+    #t1 = df[['study_id','fitzpatrick']]
+    #fitzpatricklong = t1.melt(id_vars='study_id', value_name='value')
+
     # combined df for scatterplot
     spo2so2long = spo2long.join(so2long, lsuffix='_spo2', rsuffix='_so2')
     spo2so2long = spo2so2long.join(stabilitylong['value'])
-    spo2so2long['value'].fillna('None', inplace=True)
+    spo2so2long = spo2so2long.join(collectionreasonlong['collection_reason'])
+    #spo2so2long = spo2so2long.join(fitzpatricklong['value'], rsuffix='_fitzpatrick')
+    spo2so2long['value'].fillna('None', inplace=True) #need to remove <NA> from stability list
+    spo2so2long['collection_reason'].fillna('None',inplace=True) #need to remove NA from collection reasons
+    #spo2so2long['value_fitzpatrick'].fillna('None', inplace=True) # need to remove NA from fitzpatrick
+
 
     #code records so that 1 = spo2 only, 2= so2 only, 3 = both, 0 = neither
     t1 = df[['study_id']+spo2list+so2list]
@@ -172,7 +202,7 @@ if check_password():
     with three:
         st.subheader('')
         with st.expander('Descriptive Statistics'):
-            st.table(spo2long['value'].describe())
+            st.table(spo2long['value'].apply(pd.to_numeric, errors='coerce').describe())
 
     ########################################
 
@@ -261,7 +291,7 @@ if check_password():
         fig = px.imshow(racebytone, color_continuous_scale='aggrnyl', text_auto=True, aspect='auto')
         st.plotly_chart(fig, use_container_width=True)
     ########################################
-    ########### spo2 and so2 analysis
+    ########### ABG values
     ########################################
     with tab3:   
         ####################################spo2 and so2 layout
@@ -282,15 +312,46 @@ if check_password():
             fig.add_shape(type="line",
                 x0=0, y0=0, x1=100, y1=100,
                 line=dict(
-                    color="red",
-                    width=3,
+                    color="black",
+                    width=4,
                     dash="dot",
                 )
             )
-            fig.update_xaxes(range=[60, 105])
-            fig.update_yaxes(range=[60, 105])
+            fig.update_xaxes(range=[55, 105])
+            fig.update_yaxes(range=[55, 105])
             #fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
             st.plotly_chart(fig, use_container_width=False)
+        
+        ### examine only clinical samples
+        st.subheader('Research vs clinical samples')
+        st.write('Research only samples may sit longer at the lab, and may thus have a higher SO2. Can we compare clinical samples to research only samples?')
+        spo2so2long = spo2so2long[spo2so2long['collection_reason'] != 'None']
+        fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'},
+        facet_col='collection_reason', 
+        trendline='ols'
+        )
+
+        fig.add_shape(type="line",
+        col = 'all',row='all',
+            x0=0, y0=0, x1=100, y1=100,
+            line=dict(
+                color="black",
+                width=4,
+                dash="dot",
+            )
+        )
+        fig.update_xaxes(range=[55, 105])
+        fig.update_yaxes(range=[55, 105])
+        #fig.update_yaxes(scaleanchor = "x",scaleratio = 1,)
+        st.plotly_chart(fig, use_container_width=True)
+
+        results = px.get_trendline_results(fig)
+        one, two = st.columns(2)
+        with one:
+            st.write(results.query("collection_reason == 'Clinically indicated'").px_fit_results.iloc[0].summary())
+        with two:
+            st.write(results.query("collection_reason == 'Research purposes only'").px_fit_results.iloc[0].summary())
+
 
     ########################################
     ########### clinical status
@@ -322,7 +383,11 @@ if check_password():
     ########################################
 
     with tab5:
-        st.write(spo2so2long)
+        st.write(spo2so2long[spo2so2long['value_spo2']<90])
+
+        lowlist = [1,8,9,14,7,5]
+        t1=['study_id']
+        st.write(df[df['study_id'].isin(lowlist)][t1+spo2list+so2list])
 
         st.write('''
         - 0 = neither spo2 nor so2. 
@@ -331,3 +396,12 @@ if check_password():
         - 3 = both SpO2 and sO2
         ''')
         st.write(t2['sum'].value_counts())
+
+        st.write(df)
+
+        #t1 = df[df['fitzpatrick'].fillna('None')]
+        t1=df[((df['enrollment_date'].notnull()) & (df['fitzpatrick'].notnull()))]
+        st.write(t1)
+
+        fig = px.ecdf(t1, x='enrollment_date', ecdfnorm=None, color='fitzpatrick')
+        st.plotly_chart(fig)
