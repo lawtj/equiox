@@ -127,9 +127,9 @@ if check_password():
         df = df[df['study_id'].isin(keeplist2)]
 
     with deux:
-        st.write('- All patients with data: All patients with skin pigmentation and a blood sample, regardless of consent status. Currently: ' + str(len(keeplist0)))
-        st.write('- Incompletely consented patients with data: patients with skin pigmentation and a blood sample, whose consent is Complete or Unverified. Currently: '+ str(len(keeplist2)))
-        st.write('- Patients completed study: All patients with data and consent status is Complete (gave personal consent, 28 days since enrollment, or died). Currently: ' + str(len(keeplist)))
+        st.write('- **All patients with data:** All patients with skin pigmentation and a blood sample, regardless of consent status. Currently: ' + str(len(keeplist0)))
+        st.write('- **Incompletely consented patients with data:** patients with skin pigmentation and a blood sample, whose consent is Complete or Unverified. Currently: '+ str(len(keeplist2)))
+        st.write('- **Patients completed study:** All patients with data and consent status is Complete (gave personal consent, 28 days since enrollment, or died). Currently: ' + str(len(keeplist)))
 
     ###########################calculations and dfs
 
