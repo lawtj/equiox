@@ -99,10 +99,37 @@ if check_password():
     ############## data cleaning
     ########################################
     df['age'] = df.apply(lambda x: 89 if x['age']>=90 else x['age'], axis=1) #censor ages above 90 -> 89
-    df = df[df['consent_complete'] != 'Incomplete'] #exclude those with incomplete consents
+    #df = df[df['consent_complete'] != 'Incomplete'] #exclude those with incomplete consents
+    dfa = df
     
-    keeplist = df[df['blood_sample_1_complete'] == 'Complete']['study_id'] # create list of study_ids who have a valid value for blood_sample_1
-    #df = df[df['study_id'].isin(keeplist)]
+    #all patients with data
+    keeplist0 = df[((df['blood_sample_1_complete'] == 'Complete') & (df['skin_pigment_characterization_complete']=='Complete'))]['study_id'] 
+
+    #patients who completed study 
+    keeplist = df[((df['blood_sample_1_complete'] == 'Complete') & (df['consent_complete'] == 'Complete') & (df['skin_pigment_characterization_complete']=='Complete'))]['study_id'] 
+    # incompletely consented patients with data
+    keeplist2 = df[((df['blood_sample_1_complete'] == 'Complete') & (df['consent_complete'] != 'Incomplete') & (df['skin_pigment_characterization_complete']=='Complete'))]['study_id']
+
+    st.title('EquiOx study dashboard')
+
+    un, deux, trois = st.columns(3)
+
+    with un:
+        option = st.selectbox(
+            'Filter dashboard by:',
+            ('All patients with data','Incompletely consented patients with data', 'Patients completed study'))
+    
+    if option == 'All patients with data':
+        df = df[df['study_id'].isin(keeplist0)]
+    elif option == 'Patients completed study':
+        df = df[df['study_id'].isin(keeplist)]
+    elif option == 'Incompletely consented patients with data':
+        df = df[df['study_id'].isin(keeplist2)]
+
+    with deux:
+        st.write('- All patients with data: All patients with skin pigmentation and a blood sample, regardless of consent status. Currently: ' + str(len(keeplist0)))
+        st.write('- Incompletely consented patients with data: patients with skin pigmentation and a blood sample, whose consent is Complete or Unverified. Currently: '+ str(len(keeplist2)))
+        st.write('- Patients completed study: All patients with data and consent status is Complete (gave personal consent, 28 days since enrollment, or died). Currently: ' + str(len(keeplist)))
 
     ###########################calculations and dfs
 
@@ -147,6 +174,7 @@ if check_password():
     t2=t1.copy()
 
     # recode values for spo2 = 1, so2 = 2
+    # sum column will = 1 if they only have an spo2, =2 if only has an spo2, =3 if has both
     for i in spo2list:
         t1[i] = t1[i].apply(lambda x: 1 if x>=1 else x)
     for i in so2list:
@@ -170,7 +198,6 @@ if check_password():
     enrolled = len(df['study_id'].value_counts())
     averageage = round(df['age'].mean(),1)
     totalabgs = len(t1[((t1['sum']==2) | (t1['sum']==3))])
-    st.title('EquiOx study dashboard')
 
     one, two, three, four = st.columns (4)
     one.metric(label='Enrolled patients', value=enrolled)
