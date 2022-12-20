@@ -446,7 +446,13 @@ if check_password():
     ########### validation
     ########################################
 
-    with tab5:        
+    with tab5:
+
+        #st.write(pd.to_numeric(df[pilist], errors='coerce'))
+        fig = px.histogram(df[pilist].apply(pd.to_numeric, errors='coerce'))
+        fig.update_traces(xbins=dict(size=0.2))
+        st.plotly_chart(fig)
+
         col1, col2 = st.columns(2)
         
         with col1:
@@ -458,9 +464,9 @@ if check_password():
             pidf = pidf.apply(pd.to_numeric, errors='coerce')
 
             st.write('NB update code when pt. with perfusion 97 is removed')
-            fig = px.histogram(pidf[pidf<20])
-            fig.update_traces(xbins=dict(size=0.2))
-            st.plotly_chart(fig)
+            fig = px.histogram(pidf[pidf<20], marginal='box')
+            #fig.update_traces(xbins=dict(size=0.2))
+            st.plotly_chart(fig, use_container_width=True)
 
         with col2:
             ######################## massimo perfusion
@@ -471,8 +477,8 @@ if check_password():
             
             madf = madf.apply(pd.to_numeric, errors='coerce')
 
-            fig = px.histogram(madf[madf<20])
-            st.plotly_chart(fig)
+            fig = px.histogram(madf[madf<20], marginal='box')
+            st.plotly_chart(fig, use_container_width=True)
 
         ####################this part finding those with/without spo2/so2 readings
         # st.write(spo2so2long[spo2so2long['value_spo2']<90])
