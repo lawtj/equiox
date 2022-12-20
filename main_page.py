@@ -94,6 +94,10 @@ if check_password():
     'abg_collection_reason_v10']
     artmaplist = ['art_map', 'art_map_v2', 'art_map_v3','art_map_v4','art_map_v5', 'art_map_v6', 'art_map_v7', 'art_map_v8','art_map_v9','art_map_v10']
     stabilitylist = ['so2_period_of_stability', 'spo2_period_of_stability_v2', 'spo2_period_of_stability_v3', 'spo2_period_of_stability_v4', 'spo2_period_of_stability_v5', 'spo2_period_of_stability_v6', 'spo2_period_of_stability_v7', 'spo2_period_of_stability_v8', 'spo2_period_of_stability_v9', 'spo2_period_of_stability_v10']
+    pilist = ['perfusion', 'perfusion_v2', 'perfusion_v3', 'perfusion_v4', 'perfusion_v5',
+    'perfusion_v6', 'perfusion_v7', 'perfusion_v8', 'perfusion_v9', 'perfusion_v10']
+    massimo_pi_list = ['masimo_perfusion', 'masimo_perfusion_v2', 'masimo_perfusion_v3', 'masimo_perfusion_v4', 'masimo_perfusion_v5',
+    'masimo_perfusion_v6', 'masimo_perfusion_v7', 'masimo_perfusion_v8', 'masimo_perfusion_v9', 'masimo_perfusion_v10']
 
     ########################################
     ############## data cleaning
@@ -442,26 +446,55 @@ if check_password():
     ########### validation
     ########################################
 
-    with tab5:
-        st.write(spo2so2long[spo2so2long['value_spo2']<90])
+    with tab5:        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader('Perfusion index')
+            pidf=pd.DataFrame()
+            for i in pilist:
+                pidf = pd.concat([pidf,df[i]], axis=0)
+            
+            pidf = pidf.apply(pd.to_numeric, errors='coerce')
 
-        lowlist = [1,8,9,14,7,5]
-        t1=['study_id']
-        st.write(df[df['study_id'].isin(lowlist)][t1+spo2list+so2list])
+            st.write('NB update code when pt. with perfusion 97 is removed')
+            fig = px.histogram(pidf[pidf<20])
+            fig.update_traces(xbins=dict(size=0.2))
+            st.plotly_chart(fig)
 
-        st.write('''
-        - 0 = neither spo2 nor so2. 
-        - 1 = SpO2 only. 
-        - 2 = sO2 only, 
-        - 3 = both SpO2 and sO2
-        ''')
-        st.write(t2['sum'].value_counts())
+        with col2:
+            ######################## massimo perfusion
+            st.subheader('Massimo Perfusion Index')
+            madf=pd.DataFrame()
+            for i in massimo_pi_list:
+                madf = pd.concat([madf,df[i]], axis=0)
+            
+            madf = madf.apply(pd.to_numeric, errors='coerce')
 
-        st.write(df)
+            fig = px.histogram(madf[madf<20])
+            st.plotly_chart(fig)
 
-        #t1 = df[df['fitzpatrick'].fillna('None')]
-        t1=df[((df['enrollment_date'].notnull()) & (df['fitzpatrick'].notnull()))]
-        st.write(t1)
+        ####################this part finding those with/without spo2/so2 readings
+        # st.write(spo2so2long[spo2so2long['value_spo2']<90])
 
-        fig = px.ecdf(t1, x='enrollment_date', ecdfnorm=None, color='fitzpatrick')
-        st.plotly_chart(fig)
+        # lowlist = [1,8,9,14,7,5]
+        # t1=['study_id']
+        # st.write(df[df['study_id'].isin(lowlist)][t1+spo2list+so2list])
+
+        # st.write('''
+        # - 0 = neither spo2 nor so2. 
+        # - 1 = SpO2 only. 
+        # - 2 = sO2 only, 
+        # - 3 = both SpO2 and sO2
+        # ''')
+        # st.write(t2['sum'].value_counts())
+
+        # st.write(df)
+
+        ######################this part for enrollment over time
+        # #t1 = df[df['fitzpatrick'].fillna('None')]
+        # t1=df[((df['enrollment_date'].notnull()) & (df['fitzpatrick'].notnull()))]
+        # st.write(t1)
+
+        # fig = px.ecdf(t1, x='enrollment_date', ecdfnorm=None, color='fitzpatrick')
+        # st.plotly_chart(fig)
