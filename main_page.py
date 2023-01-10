@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.io as pio
 import streamlit as st
 import requests
+from datetime import datetime as dt
 from io import StringIO
 
 def check_password():
@@ -53,7 +54,7 @@ if check_password():
     
     st.set_page_config(layout="wide")
     pd.options.plotting.backend = "plotly"
-    pio.templates.default = 'simple_white'
+    #pio.templates.default = 'simple_white'
 
     legendict = dict(orientation='h', 
         yanchor="bottom",
@@ -98,23 +99,69 @@ if check_password():
     'perfusion_v6', 'perfusion_v7', 'perfusion_v8', 'perfusion_v9', 'perfusion_v10']
     massimo_pi_list = ['masimo_perfusion', 'masimo_perfusion_v2', 'masimo_perfusion_v3', 'masimo_perfusion_v4', 'masimo_perfusion_v5',
     'masimo_perfusion_v6', 'masimo_perfusion_v7', 'masimo_perfusion_v8', 'masimo_perfusion_v9', 'masimo_perfusion_v10']
+    capture_time_list = ['capture_time','capture_time_v2','capture_time_v3','capture_time_v4','capture_time_v5',
+    'capture_time_v6','capture_time_v7','capture_time_v8','capture_time_v9','capture_time_v10']
+    sampleanalysis_time_list = ['time_of_so2_sample_analysi','so2_time_v2','so2_time_v3','so2_time_v4','so2_time_v5',
+    'so2_time_v6','so2_time_v7','so2_time_v8','so2_time_v9','so2_time_v10']
 
     ########################################
     ############## data cleaning
     ########################################
     df['age'] = df.apply(lambda x: 89 if x['age']>=90 else x['age'], axis=1) #censor ages above 90 -> 89
-    #df = df[df['consent_complete'] != 'Incomplete'] #exclude those with incomplete consents
-    dfa = df
+    # dfa = df #retain unaltered dataframe
+
+    #convert sample drawn timestamp to datetime
+    for i in capture_time_list:
+        df[i] = pd.to_datetime(df[i])
+
+    #convert enrollment date to datetime, and calculate days since enrollment
+    df['enrollment_date'] = pd.to_datetime(df['enrollment_date'])
+    df['days_since_enrollment'] = dt.now() - df['enrollment_date']
+
+    #########################
+    ######### convert sample run time to datetime
+    #sample run time is in redcap as hh:mm:ss, NOT a timestamp.
+    #assume sample run time is the same calendar day as the sample draw time and convert to datetime
+    for i in sampleanalysis_time_list:
+        df[i] = pd.to_datetime(df[i], format='%H:%M:%S', errors='coerce') #convert to datetime, defaults to 1900-1-1Thh:mm:ss
+
+    # now copy the DAY from capture_time and concat with the time from sample_analysis time
+    for i, j in zip(capture_time_list,sampleanalysis_time_list):
+        df[j] = df[i].dt.strftime("%Y/%m/%d")+'T'+df[j].dt.strftime('%H:%M:%S')
     
+    #convert from string to datetime
+    for i in sampleanalysis_time_list:
+        df[i] = pd.to_datetime(df[i])
+    
+    #subtract start time from end time
+    # for i, j in zip(capture_time_list,sampleanalysis_time_list):
+    #     df['sample_analysis_timedelta'] = df[j] - df[i]
+    
+    #print(df['sample_analysis_timedelta'])
+
+    def create_timedelta(row):
+        for i, j in zip(capture_time_list,sampleanalysis_time_list):
+            if pd.notnull(row[j]):
+                return row[j] - row[i]
+            else:
+                continue
+
+    df['sample_analysis_timedelta'] = df.apply(create_timedelta, axis=1)
+    
+    ######### END section on convert sample_run to datetime
+    ##########################    
+
+    #######################################
+    ##### filter based on consent status ##
+    #######################################
+    st.title('EquiOx study dashboard')
+
     #all patients with data
     keeplist0 = df[((df['blood_sample_1_complete'] == 'Complete') & (df['skin_pigment_characterization_complete']=='Complete'))]['study_id'] 
-
     #patients who completed study 
     keeplist = df[((df['blood_sample_1_complete'] == 'Complete') & (df['consent_complete'] == 'Complete') & (df['skin_pigment_characterization_complete']=='Complete'))]['study_id'] 
     # incompletely consented patients with data
     keeplist2 = df[((df['blood_sample_1_complete'] == 'Complete') & (df['consent_complete'] != 'Incomplete') & (df['skin_pigment_characterization_complete']=='Complete'))]['study_id']
-
-    st.title('EquiOx study dashboard')
 
     un, deux, trois = st.columns(3)
 
@@ -203,19 +250,41 @@ if check_password():
     averageage = round(df['age'].mean(),1)
     totalabgs = len(t1[((t1['sum']==2) | (t1['sum']==3))])
 
-    one, two, three, four = st.columns (4)
-    one.metric(label='Enrolled patients', value=enrolled)
-    two.metric(label='Average Age', value=averageage)
-    three.metric(label='Total ABGs', value=totalabgs)
-    four.metric(label='Avg ABGs per patient', value=round(totalabgs/enrolled, 1))
+    st.markdown("""---""")
+    one, two, three= st.columns(3)
+    one.metric(label='Total enrolled patients', value=enrolled)
+    two.metric(label='Enrolled patients in last 7 days', value=len(df[df['days_since_enrollment'] <= pd.Timedelta(7, unit='d')]))
+    with three:
+        with st.expander('Enrollment histogram'):
+            fig = px.histogram(x=df['enrollment_date'], labels={'x':'Enrollment date'})
+            st.plotly_chart(fig, use_container_width=True)
 
+    one, two, three = st.columns (3)
+    one.metric(label=''' ***:exclamation: :red[SpO2 samples <=90%]***''', value=len(spo2long[spo2long['value']<=90]))
+    two.metric(label='Total ABGs', value=totalabgs)
+    three.metric(label='Avg ABGs per patient', value=round(totalabgs/enrolled, 1))
+
+    st.markdown("""---""")
+
+
+# st.subheader('Number of enrollments over time')
+#         fig = px.histogram(x=df['enrollment_date'], labels={'x':'Enrollment date'})
+#         st.plotly_chart(fig, use_container_width=True)
     ########################################
     ########################################
     ############## above the fold header
     ########################################
-    one, two, three = st.columns ([4,6,2])
-    with two:
+    one, two, three = st.columns(3)
+
+    with one:
+        st.subheader('% of samples collected by time of day')
+        st.caption(' ')
+        fig = px.histogram(x=df[capture_time_list].melt()['value'].dt.hour, labels={'x':'Hour'}, histnorm='percent')
+        st.plotly_chart(fig, use_container_width=True)
+
+    with three:
         st.subheader('Frequency of Spo2 readings')
+        st.caption(' ')
         fig = px.histogram(spo2long, x='value',  text_auto=True, labels={'value':'SpO2', 'count':'# of patients'})
         fig.update_traces(xbins=dict( # bins used for histogram
         size=1
@@ -225,15 +294,12 @@ if check_password():
         )
         st.plotly_chart(fig, use_container_width=True)
     
-    with one:
-        st.subheader('''***Welcome to EquiOx***''')
-        st.write('The EquiOx study is an FDA sponsored clinical trial.')
-        st.info('How is the study going? Use the tabs below to explore our data.', icon="ℹ️")
-    
-    with three:
-        st.subheader('')
-        with st.expander('Descriptive Statistics'):
-            st.table(spo2long['value'].apply(pd.to_numeric, errors='coerce').describe())
+    with two:
+        st.subheader('Time until sample run')
+        st.caption('Only research samples have a value for when sample is run')
+        fig=px.histogram(df['sample_analysis_timedelta'].dt.seconds/60, labels={'value':'Minutes'}, histnorm='percent')
+        fig.update_layout(showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
 
     ########################################
 
@@ -448,11 +514,6 @@ if check_password():
 
     with tab5:
 
-        #st.write(pd.to_numeric(df[pilist], errors='coerce'))
-        fig = px.histogram(df[pilist].apply(pd.to_numeric, errors='coerce'))
-        fig.update_traces(xbins=dict(size=0.2))
-        st.plotly_chart(fig)
-
         col1, col2 = st.columns(2)
         
         with col1:
@@ -463,8 +524,7 @@ if check_password():
             
             pidf = pidf.apply(pd.to_numeric, errors='coerce')
 
-            st.write('NB update code when pt. with perfusion 97 is removed')
-            fig = px.histogram(pidf[pidf<20], marginal='box')
+            fig = px.histogram(pidf, marginal='box')
             #fig.update_traces(xbins=dict(size=0.2))
             st.plotly_chart(fig, use_container_width=True)
 
