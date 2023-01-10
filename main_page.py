@@ -54,7 +54,8 @@ if check_password():
     
     st.set_page_config(layout="wide")
     pd.options.plotting.backend = "plotly"
-    #pio.templates.default = 'simple_white'
+    # remove below when updated to streamlit 16
+    pio.templates.default = 'simple_white'
 
     legendict = dict(orientation='h', 
         yanchor="bottom",
