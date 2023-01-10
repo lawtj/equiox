@@ -261,7 +261,9 @@ if check_password():
             st.plotly_chart(fig, use_container_width=True)
 
     one, two, three = st.columns (3)
-    one.metric(label=''' ***:exclamation: :red[SpO2 samples <=90%]***''', value=len(spo2long[spo2long['value']<=90]))
+    #one.metric(label=''' ***:exclamation: :red[SpO2 samples <=90%] :exclamation:***''', value=len(spo2long[spo2long['value']<=90]))
+    # remove below once updated to streamlit 16
+    one.metric(label=''' ***:exclamation: SpO2 samples <=90% :exclamation:***''', value=len(spo2long[spo2long['value']<=90]))
     two.metric(label='Total ABGs', value=totalabgs)
     three.metric(label='Avg ABGs per patient', value=round(totalabgs/enrolled, 1))
 
