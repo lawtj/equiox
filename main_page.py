@@ -108,12 +108,12 @@ if check_password():
     sampleanalysis_time_list = ['time_of_so2_sample_analysi','so2_time_v2','so2_time_v3','so2_time_v4','so2_time_v5',
     'so2_time_v6','so2_time_v7','so2_time_v8','so2_time_v9','so2_time_v10']
 
-    fpcolors = {'I - Pale white skin': '#e7d1c4',
-            'II - White skin':'#e6c0ab',
-            'III - Light brown skin':'#ebb79f',
-            'IV - Moderate brown skin':'#cc896c',
-            'V - Dark brown skin':'#b7775e',
-            'VI - Deeply pigmented dark brown to black skin': '#97675d'}
+    fpcolors = {'I - Pale white skin': '#f4d0b0',
+            'II - White skin':'#e8b48f',
+            'III - Light brown skin':'#d39e7c',
+            'IV - Moderate brown skin':'#bb7750',
+            'V - Dark brown skin':'#a55d2b',
+            'VI - Deeply pigmented dark brown to black skin': '#3c201d'}
 
     ########################################
     ############## data cleaning
@@ -408,28 +408,36 @@ if check_password():
         
         one, two = st.columns(2)
 
+        vlcolors={
+            'Light (1-15)': 'rgb(241,231,195)',
+            'Light Medium (16-21)': 'rgb(235,214,159)',
+            'Dark Medium (22-28)' : 'rgb(188,151,98)',
+            'Dark (29-36)': 'rgb(87,50,41)'
+        }
+
         with one:
             df['vl_inner_arm'] = pd.to_numeric(df['vl_inner_arm'], errors='coerce')
             df['vl_inner_arm_bins'] = df.apply(lambda x: vlbins(x, 'vl_inner_arm'), axis=1)
             
-            hist_vl= px.histogram(df, x='vl_inner_arm_bins', title='Von Luschan Scale: Inner Arm', text_auto=True)
-            hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Inner Arm')
+            hist_vl= px.histogram(df, x='vl_inner_arm_bins', title='Von Luschan Scale: Inner Arm', text_auto=True,
+                                  color='vl_inner_arm_bins', color_discrete_map=vlcolors)
+            hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Inner Arm').update_layout(showlegend=False)
             st.plotly_chart(hist_vl, use_container_width=True)
 
         with two:
             df['vl_fingernail'] = pd.to_numeric(df['vl_fingernail'], errors='coerce')
             df['vl_fingernail_bins'] = df.apply(lambda x: vlbins(x, 'vl_fingernail'), axis=1)
-            hist_vl= px.histogram(df, x='vl_fingernail_bins', title='Von Luschan Scale: Fingernail', text_auto=True)
-            hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Fingernail')
+            hist_vl= px.histogram(df, x='vl_fingernail_bins', title='Von Luschan Scale: Fingernail', text_auto=True, color='vl_fingernail_bins', color_discrete_map=vlcolors)
+            hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Fingernail').update_layout(showlegend=False)
             st.plotly_chart(hist_vl, use_container_width=True)
 
         st.subheader('Fitzpatrick scores')
 
         first, left = st.columns([8,4])
         with first:
-            fig = px.histogram(df, x='fitzpatrick')
+            fig = px.histogram(df, x='fitzpatrick', color_discrete_map=fpcolors, color='fitzpatrick')
             fig.update_layout(xaxis={'categoryorder':'category ascending'})
-            fig.update_layout(legend=legendict)
+            fig.update_layout(legend=legendict, showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
 
         with left:
