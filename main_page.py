@@ -419,8 +419,7 @@ if check_password():
             df['vl_inner_arm'] = pd.to_numeric(df['vl_inner_arm'], errors='coerce')
             df['vl_inner_arm_bins'] = df.apply(lambda x: vlbins(x, 'vl_inner_arm'), axis=1)
             
-            hist_vl= px.histogram(df, x='vl_inner_arm_bins', title='Von Luschan Scale: Inner Arm', text_auto=True,
-                                  color='vl_inner_arm_bins', color_discrete_map=vlcolors)
+            hist_vl= px.histogram(df, x='vl_inner_arm_bins', title='Von Luschan Scale: Inner Arm', text_auto=True, scolor='vl_inner_arm_bins', color_discrete_map=vlcolors)
             hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Inner Arm').update_layout(showlegend=False)
             st.plotly_chart(hist_vl, use_container_width=True)
 
