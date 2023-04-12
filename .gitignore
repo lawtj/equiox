@@ -1,0 +1,6 @@
+secrets.toml
+*.csv
+*.ipynb
+requirements.txt
+*.ipnynb
+*.png
