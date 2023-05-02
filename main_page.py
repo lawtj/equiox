@@ -107,6 +107,9 @@ if check_password():
     'capture_time_v6','capture_time_v7','capture_time_v8','capture_time_v9','capture_time_v10']
     sampleanalysis_time_list = ['time_of_so2_sample_analysi','so2_time_v2','so2_time_v3','so2_time_v4','so2_time_v5',
     'so2_time_v6','so2_time_v7','so2_time_v8','so2_time_v9','so2_time_v10']
+    probelocation_list = ['probe_location', 'probe_location_v2', 'probe_location_v3', 'probe_location_v4', 'probe_location_v5', 
+                          'probe_location_v6', 'probe_location_v7', 'probe_location_v8', 'probe_location_v9', 'probe_location_v10']
+
 
     fpcolors = {'I - Pale white skin': '#f4d0b0',
             'II - White skin':'#e8b48f',
@@ -221,6 +224,9 @@ if check_password():
     t1 = df[['study_id']+massimo_pi_list]
     m_pilong = t1.melt(id_vars='study_id', value_name='mpi')
     m_pilong = m_pilong.apply(pd.to_numeric, errors='coerce')
+
+    # long probe location
+    probelong = df[['study_id']+probelocation_list].melt(id_vars='study_id', value_name='probe_loc')
 
 
     # combined df for scatterplot
@@ -389,9 +395,12 @@ if check_password():
             npct('care_service')
 
     ########################################
-    ########### fitzpatrick
+    ########### skin color
     ########################################
     with tab2:
+        ## monk scale
+        ## need monk category order
+
         st.subheader('Von Luschan')
 
         def vlbins(row, var):
@@ -450,7 +459,18 @@ if check_password():
     ########################################
     ########### ABG values
     ########################################
-    with tab3:   
+    with tab3:
+        st.header('Probe location')
+        t1 = px.histogram(probelong, x='probe_loc', 
+             title='Probe location', 
+             text_auto=True).update_layout(xaxis_categoryorder='total descending', 
+                                           xaxis_title='Location', 
+                                           yaxis_title='Count')
+        
+        st.plotly_chart(t1)
+
+        st.markdown('---')
+
         ####################################spo2 and so2 layout
         st.header('SPO2 analysis')
 
