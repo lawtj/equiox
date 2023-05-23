@@ -110,13 +110,31 @@ if check_password():
     probelocation_list = ['probe_location', 'probe_location_v2', 'probe_location_v3', 'probe_location_v4', 'probe_location_v5', 
                           'probe_location_v6', 'probe_location_v7', 'probe_location_v8', 'probe_location_v9', 'probe_location_v10']
 
+    msoldlist = ['ms_inner_arm','ms_fingernail','ms_surface_b','ms_surface_c','ms_forehead']
+    msnewlist = ['ms_new_inner_arm','ms_new_fingernail','ms_new_dorsal','ms_new_ventral','ms_new_forehead']
 
+    mslocations = ['Inner Arm','Fingernail','Dorsal','Ventral','Forehead']
+    monkvalues = ['A','B','C','D','E','F','G','H','I','J']
+
+    #fitzpatrick scale color definitions
     fpcolors = {'I - Pale white skin': '#f4d0b0',
             'II - White skin':'#e8b48f',
             'III - Light brown skin':'#d39e7c',
             'IV - Moderate brown skin':'#bb7750',
             'V - Dark brown skin':'#a55d2b',
             'VI - Deeply pigmented dark brown to black skin': '#3c201d'}
+    
+    #monk scale color definitions
+    mscolors= {'A': '#f6ede4',
+               'B': '#f3e7db',
+               'C': '#f7ead0',
+               'D': '#eadaba',
+               'E': '#d7bd96',
+               'F': '#a07e56',
+               'G': '#825c43',
+               'H': '#604134',
+               'I': '#3a312a',
+               'J': '#292420'}
 
     ########################################
     ############## data cleaning
@@ -401,6 +419,41 @@ if check_password():
         ## monk scale
         ## need monk category order
 
+        st.subheader('Monk Scale')
+        monkdf = df.copy()
+
+        for i in msoldlist+msnewlist:
+            #make everything uppercase
+            monkdf[i] = monkdf[i].str.upper()
+
+            #drop non valid values
+            monkdf = monkdf[monkdf[i].isin(monkvalues)]
+
+        #drop non monk columns
+        monkdf = monkdf.drop(columns=monkdf.columns[~monkdf.columns.isin(msoldlist+msnewlist)])
+
+        #make long df and sort
+        monkdf = monkdf.melt(value_name='Monk', var_name='Site').sort_values(by='Monk', ascending=True)
+
+        #Make old and new column
+        monkdf['old_new'] = monkdf['Site'].apply(lambda x: 'Old' if x in msoldlist else 'New')
+
+        for i,j,k in zip (msoldlist,msnewlist,mslocations):
+            monkdf['Site'].replace({i:k, j:k}, inplace=True)
+
+        ##### monk layout
+        one, two = st.columns(2)
+        with one:
+            fig = px.histogram(monkdf.loc[monkdf['Site']=='Forehead'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Forehead').update_layout(showlegend=False)
+            st.plotly_chart(fig)
+        
+        with two:
+            fig = px.histogram(monkdf.loc[monkdf['Site']=='Inner Arm'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Inner Arm').update_layout(showlegend=False)
+            st.plotly_chart(fig)
+
+        fig = px.histogram(monkdf.loc[monkdf['Site']=='Dorsal'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Dorsal').update_layout(showlegend=False)
+        st.plotly_chart(fig)
+    
         st.subheader('Von Luschan')
 
         def vlbins(row, var):
