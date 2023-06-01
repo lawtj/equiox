@@ -420,20 +420,38 @@ if check_password():
         ## need monk category order
 
         st.subheader('Monk Scale')
+                
+        # The goal is to get all new monk measurements, and discard the old monk measurements except in those that ONLY have old monk measurements.
+
         monkdf = df.copy()
 
         for i in msoldlist+msnewlist:
             #make everything uppercase
             monkdf[i] = monkdf[i].str.upper()
-
-            #drop non valid values
-            monkdf = monkdf[monkdf[i].isin(monkvalues)]
-
+        
         #drop non monk columns
-        monkdf = monkdf.drop(columns=monkdf.columns[~monkdf.columns.isin(msoldlist+msnewlist)])
+        monkdf = monkdf.drop(columns=monkdf.columns[~monkdf.columns.isin(['study_id']+msnewlist+msoldlist)])
+
+        #create boolean filter according to whether old, new, or both monk scales are present
+        isold = monkdf[msoldlist].notnull().any(axis=1) & monkdf[msnewlist].isnull().all(axis=1) #must have old obs, and NOT have any new obs
+        isnew = monkdf[msnewlist].notnull().any(axis=1) #must have new obs. may or may not have old obs.
+        isboth = monkdf[msoldlist].notnull().any(axis=1) & monkdf[msnewlist].notnull().any(axis=1) #must have old and new obs.
+        isany = monkdf[msoldlist].notnull().any(axis=1) | monkdf[msnewlist].notnull().any(axis=1) #has either old OR new obs
+
+        #how many patients with any monk observations?
+        pts_w_monk_obs = len(monkdf.loc[isany,['study_id']].value_counts())
+        pts_w_old_only_obs = len(monkdf.loc[isold,['study_id']].value_counts())
+        pts_w_new_obs = len(monkdf.loc[isnew,['study_id']].value_counts())
+
+        # set msoldlist columns to np.nan, for rows where there are both old and new, effectively only keeping old monk values where there is no new monk values. 
+        monkdf.loc[isboth,msoldlist] = np.nan
 
         #make long df and sort
+        monkdf = monkdf.drop('study_id', axis=1)
         monkdf = monkdf.melt(value_name='Monk', var_name='Site').sort_values(by='Monk', ascending=True)
+
+        #drop non valid values
+        monkdf = monkdf[monkdf['Monk'].isin(monkvalues)]
 
         #Make old and new column
         monkdf['old_new'] = monkdf['Site'].apply(lambda x: 'Old' if x in msoldlist else 'New')
@@ -442,7 +460,14 @@ if check_password():
             monkdf['Site'].replace({i:k, j:k}, inplace=True)
 
         ##### monk layout
+        st.write('These figures represent one anatomic site measurement per patient. They show only the "new monk" values, except where only "old monk" values exist. For reference, there are', 
+                 pts_w_old_only_obs, 
+                 'patients with ONLY "old monk" observations (this number should not go up anymore). There are also',
+                 pts_w_new_obs, 'patients with "new monk" observations.',
+                 'In total, there are',pts_w_monk_obs,'**patients** with any monk observation.')
+
         one, two = st.columns(2)
+
         with one:
             fig = px.histogram(monkdf.loc[monkdf['Site']=='Forehead'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Forehead').update_layout(showlegend=False)
             st.plotly_chart(fig)
