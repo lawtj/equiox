@@ -446,13 +446,22 @@ if check_password():
         with one:
             fig = px.histogram(monkdf.loc[monkdf['Site']=='Forehead'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Forehead').update_layout(showlegend=False)
             st.plotly_chart(fig)
+            st.write('The number of forehead samples is:',
+                len(monkdf.loc[monkdf['Site']=='Forehead'])
+            )
         
         with two:
             fig = px.histogram(monkdf.loc[monkdf['Site']=='Inner Arm'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Inner Arm').update_layout(showlegend=False)
             st.plotly_chart(fig)
+            st.write('The number of inner arm samples is:',
+                len(monkdf.loc[monkdf['Site']=='Inner Arm'])
+            )
 
         fig = px.histogram(monkdf.loc[monkdf['Site']=='Dorsal'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Dorsal').update_layout(showlegend=False)
         st.plotly_chart(fig)
+        st.write('The number of dorsal samples is:',
+                len(monkdf.loc[monkdf['Site']=='Dorsal'])
+            )
     
         st.subheader('Von Luschan')
 
