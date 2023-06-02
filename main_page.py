@@ -10,12 +10,17 @@ from datetime import datetime as dt
 from io import StringIO
 
 def check_password():
-    """Returns `True` if the user had the correct password."""
+    """Returns `True` if the user had one of the correct passwords."""
 
     def password_entered():
         """Checks whether a password entered by the user is correct."""
         if st.session_state["password"] == st.secrets["password"]:
             st.session_state["password_correct"] = True
+            st.session_state['internal_team'] = True
+            del st.session_state["password"]  # don't store password
+        elif st.session_state["password"] ==  st.secrets['fdapassword']:
+            st.session_state['password_correct'] = True
+            st.session_state['internal_team'] =  False
             del st.session_state["password"]  # don't store password
         else:
             st.session_state["password_correct"] = False
@@ -195,24 +200,28 @@ if check_password():
     # incompletely consented patients with data
     keeplist2 = df[((df['blood_sample_1_complete'] == 'Complete') & (df['consent_complete'] != 'Incomplete') & (df['skin_pigment_characterization_complete']=='Complete'))]['study_id']
 
-    un, deux, trois = st.columns(3)
+    if st.session_state['internal_team']:
+        un, deux, trois = st.columns(3)
 
-    with un:
-        option = st.selectbox(
-            'Filter dashboard by:',
-            ('All patients with data','Incompletely consented patients with data', 'Patients completed study'))
-    
-    if option == 'All patients with data':
-        df = df[df['study_id'].isin(keeplist0)]
-    elif option == 'Patients completed study':
+        with un:
+            option = st.selectbox(
+                'Filter dashboard by:',
+                ('All patients with data','Incompletely consented patients with data', 'Patients completed study'))
+        
+        if option == 'All patients with data':
+            df = df[df['study_id'].isin(keeplist0)]
+        elif option == 'Patients completed study':
+            df = df[df['study_id'].isin(keeplist)]
+        elif option == 'Incompletely consented patients with data':
+            df = df[df['study_id'].isin(keeplist2)]
+
+        with deux:
+            st.write('- **All patients with data:** All patients with skin pigmentation and a blood sample, regardless of consent status. Currently: ' + str(len(keeplist0)))
+            st.write('- **Incompletely consented patients with data:** patients with skin pigmentation and a blood sample, whose consent is Complete or Unverified. Currently: '+ str(len(keeplist2)))
+            st.write('- **Patients completed study:** All patients with data and consent status is Complete (gave personal consent, 28 days since enrollment, or died). Currently: ' + str(len(keeplist)))
+    else:
         df = df[df['study_id'].isin(keeplist)]
-    elif option == 'Incompletely consented patients with data':
-        df = df[df['study_id'].isin(keeplist2)]
-
-    with deux:
-        st.write('- **All patients with data:** All patients with skin pigmentation and a blood sample, regardless of consent status. Currently: ' + str(len(keeplist0)))
-        st.write('- **Incompletely consented patients with data:** patients with skin pigmentation and a blood sample, whose consent is Complete or Unverified. Currently: '+ str(len(keeplist2)))
-        st.write('- **Patients completed study:** All patients with data and consent status is Complete (gave personal consent, 28 days since enrollment, or died). Currently: ' + str(len(keeplist)))
+        st.write('This dashboard is currently showing only fully consented patients.')
 
     ###########################calculations and dfs
 
