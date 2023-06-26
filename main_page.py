@@ -534,6 +534,19 @@ if check_password():
             hist_vl= px.histogram(df, x='vl_fingernail_bins', title='Von Luschan Scale: Fingernail', text_auto=True, color='vl_fingernail_bins', color_discrete_map=vlcolors)
             hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Fingernail').update_layout(showlegend=False)
             st.plotly_chart(hist_vl, use_container_width=True)
+        
+        one, two = st.columns(2)
+
+        with one:
+            df['vl_surface_b'] = pd.to_numeric(df['vl_surface_b'], errors='coerce')
+            df['vl_dorsal_bins'] = df.apply(lambda x: vlbins(x, 'vl_surface_b'), axis=1)
+
+            hist_vl = px.histogram(df, x='vl_dorsal_bins', title='Von Luschan Scale: Dorsal', text_auto=True, color='vl_dorsal_bins',color_discrete_map=vlcolors)
+            hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Dorsal').update_layout(showlegend=False)
+            st.plotly_chart(hist_vl, use_container_width=True)
+        
+        with two:
+            st.write("what?")
 
         st.subheader('Fitzpatrick scores')
 
