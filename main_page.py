@@ -546,7 +546,7 @@ if check_password():
             st.plotly_chart(hist_vl, use_container_width=True)
         
         with two:
-            st.write("what?")
+            st.write("")
 
         st.subheader('Fitzpatrick scores')
 
