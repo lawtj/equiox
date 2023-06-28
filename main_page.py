@@ -121,6 +121,8 @@ if check_password():
     mslocations = ['Inner Arm','Fingernail','Dorsal','Ventral','Forehead']
     monkvalues = ['A','B','C','D','E','F','G','H','I','J']
 
+    vllist = ['vl_inner_arm','vl_fingernail','vl_surface_b','vl_surface_c']
+
     #fitzpatrick scale color definitions
     fpcolors = {'I - Pale white skin': '#f4d0b0',
             'II - White skin':'#e8b48f',
@@ -140,6 +142,18 @@ if check_password():
                'H': '#604134',
                'I': '#3a312a',
                'J': '#292420'}
+    
+    def vlbins(row, var):
+        if row[var] >= 1 and row[var] <=15:
+            return "Light (1-15)"
+        elif row[var] >= 16 and row[var] <=21:
+            return "Light Medium (16-21)"
+        elif row[var] >= 22 and row[var] <=28:
+            return "Dark Medium (22-28)"
+        elif row[var] >= 29 and row[var] <= 36:
+            return "Dark (29-36)"
+        else:
+            return np.nan
 
     ########################################
     ############## data cleaning
@@ -439,7 +453,7 @@ if check_password():
             monkdf[i] = monkdf[i].str.upper()
         
         #drop non monk columns
-        monkdf = monkdf.drop(columns=monkdf.columns[~monkdf.columns.isin(['study_id']+msnewlist+msoldlist)])
+        monkdf = monkdf.drop(columns=monkdf.columns[~monkdf.columns.isin(['study_id']+msnewlist+msoldlist+vllist)])
 
         #create boolean filter according to whether old, new, or both monk scales are present
         isold = monkdf[msoldlist].notnull().any(axis=1) & monkdf[msnewlist].isnull().all(axis=1) #must have old obs, and NOT have any new obs
@@ -455,18 +469,21 @@ if check_password():
         # set msoldlist columns to np.nan, for rows where there are both old and new, effectively only keeping old monk values where there is no new monk values. 
         monkdf.loc[isboth,msoldlist] = np.nan
 
-        #make long df and sort
-        monkdf = monkdf.drop('study_id', axis=1)
-        monkdf = monkdf.melt(value_name='Monk', var_name='Site').sort_values(by='Monk', ascending=True)
+        # fill new monk values with old monk values where new monk values are nan
+        # this ensures the new monk columns have all the data, old and new
+        for old, new in zip(msoldlist,msnewlist):
+            monkdf[new] = monkdf[new].fillna(monkdf[old])
 
-        #drop non valid values
-        monkdf = monkdf[monkdf['Monk'].isin(monkvalues)]
+        # where the new monk values are not A-I, fill with nan (gets rid of 'data not recorded for example')
+        for new in msnewlist:
+            monkdf[new] = np.where(monkdf[new].isin(monkvalues), monkdf[new],np.nan)
 
         #Make old and new column
-        monkdf['old_new'] = monkdf['Site'].apply(lambda x: 'Old' if x in msoldlist else 'New')
+        # this was only needed to compare old and new monk
+        # monkdf['old_new'] = monkdf['Site'].apply(lambda x: 'Old' if x in msoldlist else 'New')
 
-        for i,j,k in zip (msoldlist,msnewlist,mslocations):
-            monkdf['Site'].replace({i:k, j:k}, inplace=True)
+        # for i,j,k in zip (msoldlist,msnewlist,mslocations):
+        #     monkdf['Site'].replace({i:k, j:k}, inplace=True)
 
         ##### monk layout
         st.write('These figures represent one anatomic site measurement per patient. They show only the "new monk" values, except where only "old monk" values exist. For reference, there are', 
@@ -475,41 +492,39 @@ if check_password():
                  pts_w_new_obs, 'patients with "new monk" observations.',
                  'In total, there are',pts_w_monk_obs,'**patients** with any monk observation.')
 
+        def monkhist(col, title):
+            fig = px.histogram(monkdf.sort_values(by=col, ascending=True), x=col, color=col, color_discrete_map=mscolors, text_auto=True, title=title).update_layout(showlegend=False, xaxis_title=title)
+            st.plotly_chart(fig)
+        
         one, two = st.columns(2)
 
         with one:
-            fig = px.histogram(monkdf.loc[monkdf['Site']=='Forehead'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Forehead').update_layout(showlegend=False)
-            st.plotly_chart(fig)
+            monkhist('ms_new_forehead', 'Monk: Forehead')
+            # fig = px.histogram(monkdf.loc[monkdf['Site']=='Forehead'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Forehead').update_layout(showlegend=False)
+            # st.plotly_chart(fig)
             st.write('The number of forehead samples is:',
-                len(monkdf.loc[monkdf['Site']=='Forehead'])
+                monkdf['ms_new_forehead'].value_counts().sum()
             )
         
         with two:
-            fig = px.histogram(monkdf.loc[monkdf['Site']=='Inner Arm'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Inner Arm').update_layout(showlegend=False)
-            st.plotly_chart(fig)
+            monkhist('ms_new_inner_arm', 'Monk: Inner Arm')
             st.write('The number of inner arm samples is:',
-                len(monkdf.loc[monkdf['Site']=='Inner Arm'])
-            )
+                monkdf['ms_new_inner_arm'].value_counts().sum())
 
-        fig = px.histogram(monkdf.loc[monkdf['Site']=='Dorsal'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Dorsal').update_layout(showlegend=False)
-        st.plotly_chart(fig)
-        st.write('The number of dorsal samples is:',
-                len(monkdf.loc[monkdf['Site']=='Dorsal'])
-            )
-    
+        one, two = st.columns(2)
+        with one:
+            monkhist('ms_new_dorsal', 'Monk: Dorsal')
+            st.write('The number of dorsal samples is:',
+                    monkdf['ms_new_dorsal'].value_counts().sum())
+
+        with two:
+            monkdf['vl_dorsal_bins'] = monkdf.apply(lambda x: vlbins(x, 'vl_surface_b'), axis=1)
+            t1 = pd.crosstab(monkdf['vl_dorsal_bins'], columns=monkdf['ms_new_dorsal'])
+            t1 = t1.reindex(index=['Light (1-15)', 'Light Medium (16-21)', 'Dark Medium (22-28)', 'Dark (29-36)'])
+            t2 = px.imshow(t1, text_auto=True, color_continuous_scale='YlOrBr').update_layout(xaxis_title='Monk Value', yaxis_title='Von Luscan Bin', title='Number of patients in each VL/Monk pair').update_coloraxes(showscale=False)
+            st.plotly_chart(t2)            
+
         st.subheader('Von Luschan')
-
-        def vlbins(row, var):
-            if row[var] >= 1 and row[var] <=15:
-                return "Light (1-15)"
-            elif row[var] >= 16 and row[var] <=21:
-                return "Light Medium (16-21)"
-            elif row[var] >= 22 and row[var] <=28:
-                return "Dark Medium (22-28)"
-            elif row[var] >= 29 and row[var] <= 36:
-                return "Dark (29-36)"
-            else:
-                return np.nan
         
         one, two = st.columns(2)
 
