@@ -120,6 +120,7 @@ if check_password():
 
     mslocations = ['Inner Arm','Fingernail','Dorsal','Ventral','Forehead']
     monkvalues = ['A','B','C','D','E','F','G','H','I','J']
+    vlvalues = ["Light (1-15)", "Light Medium (16-21)","Dark Medium (22-28)","Dark (29-36)"]
 
     vllist = ['vl_inner_arm','vl_fingernail','vl_surface_b','vl_surface_c']
 
@@ -142,18 +143,30 @@ if check_password():
                'H': '#604134',
                'I': '#3a312a',
                'J': '#292420'}
+
+    vlcolors={
+            'Light (1-15)': 'rgb(241,231,195)',
+            'Light Medium (16-21)': 'rgb(235,214,159)',
+            'Dark Medium (22-28)' : 'rgb(188,151,98)',
+            'Dark (29-36)': 'rgb(87,50,41)'
+        }
     
     def vlbins(row, var):
-        if row[var] >= 1 and row[var] <=15:
-            return "Light (1-15)"
-        elif row[var] >= 16 and row[var] <=21:
-            return "Light Medium (16-21)"
-        elif row[var] >= 22 and row[var] <=28:
-            return "Dark Medium (22-28)"
-        elif row[var] >= 29 and row[var] <= 36:
-            return "Dark (29-36)"
-        else:
-            return np.nan
+        try: 
+            float(row[var])
+            if row[var] >= 1 and row[var] <=15:
+                return "Light (1-15)"
+            elif row[var] >= 16 and row[var] <=21:
+                return "Light Medium (16-21)"
+            elif row[var] >= 22 and row[var] <=28:
+                return "Dark Medium (22-28)"
+            elif row[var] >= 29 and row[var] <= 36:
+                return "Dark (29-36)"
+            else:
+                return np.nan
+        except ValueError:
+            return row[var]
+
 
     ########################################
     ############## data cleaning
@@ -478,90 +491,144 @@ if check_password():
         for new in msnewlist:
             monkdf[new] = np.where(monkdf[new].isin(monkvalues), monkdf[new],np.nan)
 
-        #Make old and new column
-        # this was only needed to compare old and new monk
-        # monkdf['old_new'] = monkdf['Site'].apply(lambda x: 'Old' if x in msoldlist else 'New')
+        #to make histogram facet plots, need to take monkdf and transform into long
+        #melt monkdf
+        skinsite = monkdf.drop(['study_id']+msoldlist, axis=1).melt()
 
-        # for i,j,k in zip (msoldlist,msnewlist,mslocations):
-        #     monkdf['Site'].replace({i:k, j:k}, inplace=True)
+        def renamesurface(row,col):
+            if row[col] == 'vl_surface_b':
+                return 'vl_dorsal'
+            elif row[col] == 'vl_surface_c':
+                return 'vl_ventral'
+            elif row[col] == 'ms_surface_b':
+                return 'ms_dorsal'
+            elif row[col] == 'ms_surface_c':
+                return 'ms_ventral'
+            else:
+                return row[col]
+        
+        def makefloatsfloat(row,col):
+            try:
+                float(row[col])
+                return float(row[col])
+            except ValueError:
+                return row[col]
+
+        #get rid of surface_x
+        skinsite['variable'] = skinsite.apply(lambda x: renamesurface(x, 'variable'), axis=1)
+
+        #make floats in value actually float not str
+        skinsite['value'] = skinsite.apply(lambda x: makefloatsfloat(x, 'value'), axis=1)
+
+        #create Scale column from e.g. vl_inner_arm or ms_inner_arm, returning vl or ms
+        skinsite['Scale'] = skinsite['variable'].str.extract(r'(\w\w)_')
+
+        #create measurement Site column from the part of the string after vl_ or ms_
+        skinsite['Site'] = skinsite['variable'].str.extract(r'\D\D_(\w*)')
+
+        #some sites are ms_new_forehead, or ms_forehead
+        #select rows with 'new' in them, and update them to read only whatever is after 'new'
+        mask = skinsite['Site'].str.contains('new')
+        skinsite.loc[mask, 'Site'] = skinsite.loc[mask, 'Site'].str.extract(r'new_(\w*)', expand=False)
+        skinsite['value']=skinsite.apply(lambda x: vlbins(x, 'value'), axis=1)
 
         ##### monk layout
-        st.write('These figures represent one anatomic site measurement per patient. They show only the "new monk" values, except where only "old monk" values exist. For reference, there are', 
-                 pts_w_old_only_obs, 
-                 'patients with ONLY "old monk" observations (this number should not go up anymore). There are also',
-                 pts_w_new_obs, 'patients with "new monk" observations.',
-                 'In total, there are',pts_w_monk_obs,'**patients** with any monk observation.')
-
-        def monkhist(col, title):
-            fig = px.histogram(monkdf.sort_values(by=col, ascending=True), x=col, color=col, color_discrete_map=mscolors, text_auto=True, title=title).update_layout(showlegend=False, xaxis_title=title)
-            st.plotly_chart(fig)
         
-        one, two = st.columns(2)
+        st.plotly_chart(
+            px.histogram(skinsite[(skinsite['Scale']=='ms') & (skinsite['value'].isin(monkvalues))].sort_values(by='value', ascending=True), 
+             x='value', 
+             facet_col='Site', 
+             facet_col_wrap=2,
+             text_auto=True,
+             color='value', 
+             color_discrete_map=mscolors,
+             title='Histogram of Monk Scale measurements by site', height=1000).update_xaxes(title='', showticklabels=True), use_container_width=True
+        )
 
-        with one:
-            monkhist('ms_new_forehead', 'Monk: Forehead')
-            # fig = px.histogram(monkdf.loc[monkdf['Site']=='Forehead'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Forehead').update_layout(showlegend=False)
-            # st.plotly_chart(fig)
-            st.write('The number of forehead samples is:',
-                monkdf['ms_new_forehead'].value_counts().sum()
-            )
+        st.plotly_chart(px.histogram(skinsite[(skinsite['Scale']=='vl') & skinsite['value'].isin(vlvalues)].sort_values(by='value'), 
+             x='value',
+             facet_col='Site',
+             facet_col_wrap=2,
+             facet_row_spacing=.15,
+             text_auto=True, 
+             title = 'Histogram of VL measurements by site',
+             color='value', color_discrete_map=vlcolors, height=750).update_traces(
+                 xbins=dict(size=1)).update_xaxes(
+                     categoryorder='array', 
+                     categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'],
+                     title='',
+                     showticklabels=True).update_layout(
+                         showlegend=False), use_container_width=True)
+
+        # st.write('These figures represent one anatomic site measurement per patient. They show only the "new monk" values, except where only "old monk" values exist. For reference, there are', 
+        #          pts_w_old_only_obs, 
+        #          'patients with ONLY "old monk" observations (this number should not go up anymore). There are also',
+        #          pts_w_new_obs, 'patients with "new monk" observations.',
+        #          'In total, there are',pts_w_monk_obs,'**patients** with any monk observation.')
+
+        # def monkhist(col, title):
+        #     fig = px.histogram(monkdf.sort_values(by=col, ascending=True), x=col, color=col, color_discrete_map=mscolors, text_auto=True, title=title).update_layout(showlegend=False, xaxis_title=title)
+        #     st.plotly_chart(fig)
         
-        with two:
-            monkhist('ms_new_inner_arm', 'Monk: Inner Arm')
-            st.write('The number of inner arm samples is:',
-                monkdf['ms_new_inner_arm'].value_counts().sum())
+        # one, two = st.columns(2)
 
-        one, two = st.columns(2)
-        with one:
-            monkhist('ms_new_dorsal', 'Monk: Dorsal')
-            st.write('The number of dorsal samples is:',
-                    monkdf['ms_new_dorsal'].value_counts().sum())
-
-        with two:
-            monkdf['vl_dorsal_bins'] = monkdf.apply(lambda x: vlbins(x, 'vl_surface_b'), axis=1)
-            t1 = pd.crosstab(monkdf['vl_dorsal_bins'], columns=monkdf['ms_new_dorsal'])
-            t1 = t1.reindex(index=['Light (1-15)', 'Light Medium (16-21)', 'Dark Medium (22-28)', 'Dark (29-36)'])
-            t2 = px.imshow(t1, text_auto=True, color_continuous_scale='YlOrBr').update_layout(xaxis_title='Monk Value', yaxis_title='Von Luscan Bin', title='Number of patients in each VL/Monk pair').update_coloraxes(showscale=False)
-            st.plotly_chart(t2)            
-
-        st.subheader('Von Luschan')
+        # with one:
+        #     monkhist('ms_new_forehead', 'Monk: Forehead')
+        #     # fig = px.histogram(monkdf.loc[monkdf['Site']=='Forehead'], x='Monk', color='Monk',color_discrete_map=mscolors,text_auto=True, title='Monk: Forehead').update_layout(showlegend=False)
+        #     # st.plotly_chart(fig)
+        #     st.write('The number of forehead samples is:',
+        #         monkdf['ms_new_forehead'].value_counts().sum()
+        #     )
         
-        one, two = st.columns(2)
+        # with two:
+        #     monkhist('ms_new_inner_arm', 'Monk: Inner Arm')
+        #     st.write('The number of inner arm samples is:',
+        #         monkdf['ms_new_inner_arm'].value_counts().sum())
 
-        vlcolors={
-            'Light (1-15)': 'rgb(241,231,195)',
-            'Light Medium (16-21)': 'rgb(235,214,159)',
-            'Dark Medium (22-28)' : 'rgb(188,151,98)',
-            'Dark (29-36)': 'rgb(87,50,41)'
-        }
+        # one, two = st.columns(2)
+        # with one:
+        #     monkhist('ms_new_dorsal', 'Monk: Dorsal')
+        #     st.write('The number of dorsal samples is:',
+        #             monkdf['ms_new_dorsal'].value_counts().sum())
 
-        with one:
-            df['vl_inner_arm'] = pd.to_numeric(df['vl_inner_arm'], errors='coerce')
-            df['vl_inner_arm_bins'] = df.apply(lambda x: vlbins(x, 'vl_inner_arm'), axis=1)
+        # with two:
+        #     monkdf['vl_dorsal_bins'] = monkdf.apply(lambda x: vlbins(x, 'vl_surface_b'), axis=1)
+        #     t1 = pd.crosstab(monkdf['vl_dorsal_bins'], columns=monkdf['ms_new_dorsal'])
+        #     t1 = t1.reindex(index=['Light (1-15)', 'Light Medium (16-21)', 'Dark Medium (22-28)', 'Dark (29-36)'])
+        #     t2 = px.imshow(t1, text_auto=True, color_continuous_scale='YlOrBr').update_layout(xaxis_title='Monk Value', yaxis_title='Von Luscan Bin', title='Number of patients in each VL/Monk pair').update_coloraxes(showscale=False)
+        #     st.plotly_chart(t2)            
+
+        # st.subheader('Von Luschan')
+        
+        # one, two = st.columns(2)
+
+        # with one:
+        #     df['vl_inner_arm'] = pd.to_numeric(df['vl_inner_arm'], errors='coerce')
+        #     df['vl_inner_arm_bins'] = df.apply(lambda x: vlbins(x, 'vl_inner_arm'), axis=1)
             
-            hist_vl= px.histogram(df, x='vl_inner_arm_bins', title='Von Luschan Scale: Inner Arm', text_auto=True, color='vl_inner_arm_bins', color_discrete_map=vlcolors)
-            hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Inner Arm').update_layout(showlegend=False)
-            st.plotly_chart(hist_vl, use_container_width=True)
+        #     hist_vl= px.histogram(df, x='vl_inner_arm_bins', title='Von Luschan Scale: Inner Arm', text_auto=True, color='vl_inner_arm_bins', color_discrete_map=vlcolors)
+        #     hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Inner Arm').update_layout(showlegend=False)
+        #     st.plotly_chart(hist_vl, use_container_width=True)
 
-        with two:
-            df['vl_fingernail'] = pd.to_numeric(df['vl_fingernail'], errors='coerce')
-            df['vl_fingernail_bins'] = df.apply(lambda x: vlbins(x, 'vl_fingernail'), axis=1)
-            hist_vl= px.histogram(df, x='vl_fingernail_bins', title='Von Luschan Scale: Fingernail', text_auto=True, color='vl_fingernail_bins', color_discrete_map=vlcolors)
-            hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Fingernail').update_layout(showlegend=False)
-            st.plotly_chart(hist_vl, use_container_width=True)
+        # with two:
+        #     df['vl_fingernail'] = pd.to_numeric(df['vl_fingernail'], errors='coerce')
+        #     df['vl_fingernail_bins'] = df.apply(lambda x: vlbins(x, 'vl_fingernail'), axis=1)
+        #     hist_vl= px.histogram(df, x='vl_fingernail_bins', title='Von Luschan Scale: Fingernail', text_auto=True, color='vl_fingernail_bins', color_discrete_map=vlcolors)
+        #     hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Fingernail').update_layout(showlegend=False)
+        #     st.plotly_chart(hist_vl, use_container_width=True)
         
-        one, two = st.columns(2)
+        # one, two = st.columns(2)
 
-        with one:
-            df['vl_surface_b'] = pd.to_numeric(df['vl_surface_b'], errors='coerce')
-            df['vl_dorsal_bins'] = df.apply(lambda x: vlbins(x, 'vl_surface_b'), axis=1)
+        # with one:
+        #     df['vl_surface_b'] = pd.to_numeric(df['vl_surface_b'], errors='coerce')
+        #     df['vl_dorsal_bins'] = df.apply(lambda x: vlbins(x, 'vl_surface_b'), axis=1)
 
-            hist_vl = px.histogram(df, x='vl_dorsal_bins', title='Von Luschan Scale: Dorsal', text_auto=True, color='vl_dorsal_bins',color_discrete_map=vlcolors)
-            hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Dorsal').update_layout(showlegend=False)
-            st.plotly_chart(hist_vl, use_container_width=True)
+        #     hist_vl = px.histogram(df, x='vl_dorsal_bins', title='Von Luschan Scale: Dorsal', text_auto=True, color='vl_dorsal_bins',color_discrete_map=vlcolors)
+        #     hist_vl.update_traces(xbins=dict(size=1)).update_xaxes(categoryorder='array', categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'], title='VL Dorsal').update_layout(showlegend=False)
+        #     st.plotly_chart(hist_vl, use_container_width=True)
         
-        with two:
-            st.write("")
+        # with two:
+        #     st.write("")
 
         st.subheader('Fitzpatrick scores')
 
