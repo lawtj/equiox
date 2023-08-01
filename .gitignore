@@ -4,3 +4,4 @@ secrets.toml
 *.ipnynb
 *.png
 *.jpg
+*.pyc

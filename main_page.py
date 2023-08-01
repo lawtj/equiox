@@ -533,32 +533,134 @@ if check_password():
         skinsite['value']=skinsite.apply(lambda x: vlbins(x, 'value'), axis=1)
 
         ##### monk layout
-        
-        st.plotly_chart(
-            px.histogram(skinsite[(skinsite['Scale']=='ms') & (skinsite['value'].isin(monkvalues))].sort_values(by='value', ascending=True), 
-             x='value', 
-             facet_col='Site', 
-             facet_col_wrap=2,
-             text_auto=True,
-             color='value', 
-             color_discrete_map=mscolors,
-             title='Histogram of Monk Scale measurements by site', height=1000).update_xaxes(title='', showticklabels=True), use_container_width=True
-        )
+        with st.expander('Monk Scale by Site, per patient'):
+            st.plotly_chart(
+                px.histogram(skinsite[(skinsite['Scale']=='ms') & (skinsite['value'].isin(monkvalues))].sort_values(by='value', ascending=True), 
+                x='value', 
+                facet_col='Site', 
+                facet_col_wrap=2,
+                text_auto=True,
+                color='value', 
+                color_discrete_map=mscolors,
+                title='Histogram of Monk Scale measurements by site', height=1000).update_xaxes(title='', showticklabels=True), use_container_width=True
+            )
 
-        st.plotly_chart(px.histogram(skinsite[(skinsite['Scale']=='vl') & skinsite['value'].isin(vlvalues)].sort_values(by='value'), 
-             x='value',
-             facet_col='Site',
-             facet_col_wrap=2,
-             facet_row_spacing=.15,
-             text_auto=True, 
-             title = 'Histogram of VL measurements by site',
-             color='value', color_discrete_map=vlcolors, height=750).update_traces(
-                 xbins=dict(size=1)).update_xaxes(
-                     categoryorder='array', 
-                     categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'],
-                     title='',
-                     showticklabels=True).update_layout(
-                         showlegend=False), use_container_width=True)
+        with st.expander("Monk scale by site, per Sample"):
+            # go across the given set of columns and join them together. 
+            # since each row should only have one observation, the rest of the visits should be nan
+            # the strip the _nan
+            def joincol(col, varlist):
+                df[col] = df[varlist].apply(lambda row: '_'.join(row.values.astype(str)), axis=1)
+                df[col] = df[col].str.strip('_nan')
+
+            # the new column names, and the column lists to join
+            newcombinedcols = ['pl','so2com','spo2com']
+            colstocombine = [probelocation_list,so2list,spo2list]
+
+            for i, j in zip(newcombinedcols, colstocombine):
+                joincol(i,j)
+
+            #this is the mini df with just probe location, so2 and spo2
+            tdf = df[['study_id','pl','so2com','spo2com']]
+
+            ##################
+            ##############
+            ########### NB THIS IS NOT A COMPLETE LIST OF FINGERS 
+            ######## MORE COULD BE ADDED!! ITS NOT A DROPDOWN
+            ########### NEEED TO CHECK VALUE_COUNTS() LATER
+
+            fingerlist = ['Right Index',  'Right Ring',
+            'Right Middle',
+            'Left Index',
+            'Left Ring',
+            'Left Middle',
+            'Right Thumb',
+            'Left Thumb',
+            'Left Pinky'
+            'Right Pinky']
+
+            earlist = [ 'Right earlobe',
+            'Left earlobe']
+
+            #consolidate the probe locations to a smaller list
+            def consolidate_locations(row,col):
+                if row[col] in fingerlist:
+                    return "Finger"
+                elif row[col] in earlist:
+                    return "Ear"
+                elif row[col] == 'Nare':
+                    return "Nare"
+                else:
+                    return 'other'
+
+            tdf['consolidated_pl'] = tdf.apply(lambda row: consolidate_locations(row, 'pl'), axis=1)
+
+            #want to get just the skin color measurements of the patients and join them to the probe/spo2/so2 list
+            #however each patient appears n times depending on how many samples they had taken
+            #group monkdf by first to effectively drop NaN cells, and retain only non nans, including for the color measurments
+            tdf2 = monkdf.groupby(by='study_id').first()
+
+            #join so that tdf now has the skin color measurements from tdf2
+            tdf3 = tdf.join(tdf2, on='study_id', how='left')
+            xt = pd.concat([tdf3[tdf3['consolidated_pl']=="Finger"][['ms_new_dorsal']], tdf3[tdf3['consolidated_pl']=='Ear'][['ms_new_forehead']]], axis=1).melt()
+
+            
+            one, two = st.columns(2)
+            with one:
+                fig = px.histogram(xt.sort_values(by='value', ascending=True), 
+                x='value', 
+                color='value', 
+                color_discrete_map=mscolors, 
+                text_auto=True,
+                title='Dorsal/Forehead measurements for samples taken with finger/ear probes').update_xaxes(title='Monk Scale').update_traces(showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
+
+                fig = px.histogram(tdf3[tdf3['consolidated_pl']=='Finger'].sort_values(by='ms_new_dorsal', ascending=True), 
+                x='ms_new_dorsal', 
+                color='ms_new_dorsal', 
+                color_discrete_map=mscolors, 
+                text_auto=True,
+                title='Dorsal monk measurement for samples taken with a finger probe').update_xaxes(title='Dorsal Monk').update_traces(showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with two:
+                fig = px.histogram(tdf3[tdf3['consolidated_pl']=='Ear'].sort_values(by='ms_new_forehead', ascending=True), 
+                x='ms_new_forehead', 
+                color='ms_new_forehead', 
+                color_discrete_map=mscolors, 
+                text_auto=True,
+                title='Forehead Monk measurement for samples taken with a ear probe').update_xaxes(title='Forehead Monk').update_traces(showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
+
+        ##### VL Layout
+        st.subheader('Von Luschan')
+        with st.expander('VL by site, per patient'):
+            st.plotly_chart(px.histogram(skinsite[(skinsite['Scale']=='vl') & skinsite['value'].isin(vlvalues)].sort_values(by='value'), 
+                x='value',
+                facet_col='Site',
+                facet_col_wrap=2,
+                facet_row_spacing=.15,
+                text_auto=True, 
+                title = 'Histogram of VL measurements by site',
+                color='value', color_discrete_map=vlcolors, height=750).update_traces(
+                    xbins=dict(size=1)).update_xaxes(
+                        categoryorder='array', 
+                        categoryarray=['Light (1-15)', 'Light Medium (16-21)','Dark Medium (22-28)','Dark (29-36)'],
+                        title='',
+                        showticklabels=True).update_layout(
+                            showlegend=False), use_container_width=True)
+        
+        one, two = st.columns(2)
+
+        with one:
+            monkdf['vl_dorsal_bins'] = monkdf.apply(lambda x: vlbins(x, 'vl_surface_b'), axis=1)
+            t1 = pd.crosstab(monkdf['vl_dorsal_bins'], columns=monkdf['ms_new_dorsal'])
+            t1 = t1.reindex(index=['Light (1-15)', 'Light Medium (16-21)', 'Dark Medium (22-28)', 'Dark (29-36)'])
+            t2 = px.imshow(t1, text_auto=True, color_continuous_scale='YlOrBr').update_layout(xaxis_title='Monk Value', yaxis_title='Von Luscan Bin', title='Number of patients in each VL/Monk pair').update_coloraxes(showscale=False)
+            st.plotly_chart(t2, use_container_width=True)
+        
+        with two:
+            st.write("")
 
         # st.write('These figures represent one anatomic site measurement per patient. They show only the "new monk" values, except where only "old monk" values exist. For reference, there are', 
         #          pts_w_old_only_obs, 
@@ -592,11 +694,8 @@ if check_password():
         #             monkdf['ms_new_dorsal'].value_counts().sum())
 
         # with two:
-        #     monkdf['vl_dorsal_bins'] = monkdf.apply(lambda x: vlbins(x, 'vl_surface_b'), axis=1)
-        #     t1 = pd.crosstab(monkdf['vl_dorsal_bins'], columns=monkdf['ms_new_dorsal'])
-        #     t1 = t1.reindex(index=['Light (1-15)', 'Light Medium (16-21)', 'Dark Medium (22-28)', 'Dark (29-36)'])
-        #     t2 = px.imshow(t1, text_auto=True, color_continuous_scale='YlOrBr').update_layout(xaxis_title='Monk Value', yaxis_title='Von Luscan Bin', title='Number of patients in each VL/Monk pair').update_coloraxes(showscale=False)
-        #     st.plotly_chart(t2)            
+        #     
+            
 
         # st.subheader('Von Luschan')
         
