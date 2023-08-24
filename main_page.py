@@ -810,6 +810,10 @@ if check_password():
 
             arms = math.sqrt(spo2so2long['biassq'].sum()/len(spo2so2long['biassq']))
 
+            fitzlight = spo2so2long['fitzpatrick'].isin(['I - Pale white skin','II - White skin'])
+            fitzmedium= spo2so2long['fitzpatrick'].isin(['III - Light brown skin','IV - Moderate brown skin'])
+            fitzdark = spo2so2long['fitzpatrick'].isin(['V - Dark brown skin','VI - Deeply pigmented dark brown to black skin'])
+
             def scatterops(fig, name):
                 fig.update_layout(legend=legendict, template='plotly_white', xaxis_title='Hemoximeter (SaO<sub>2</sub>, %)', yaxis_title='Bias (SpO<sub>2</sub> - SaO<sub>2</sub>,%)')
                 #fig.update_traces(marker=dict(opacity=0.5))
@@ -818,6 +822,67 @@ if check_password():
                 fig.add_hline(y=arms, annotation_text='ARMS: ' + str(round(arms,1)), annotation_position='top left', line_dash='dash',  line_width=2, opacity=1)
                 figlist.append(fig)
                 fignames.append(name)
+
+            # second scatter function to account for mb2 and arms2
+            def scatterops2(fig, name, fitz):
+                #mean bias
+                mb2 = spo2so2long[fitz]['bias'].mean()
+                arms2 = math.sqrt(spo2so2long[fitz]['biassq'].sum()/len(spo2so2long[fitz]['biassq']))
+                fig.update_layout(legend=legendict, template='plotly_white', xaxis_title='Hemoximeter (SaO<sub>2</sub>, %)', yaxis_title='Bias (SpO<sub>2</sub> - SaO<sub>2</sub>,%)')
+                #fig.update_traces(marker=dict(opacity=0.5))
+                fig.update_traces(marker=dict(symbol='circle-open'))
+                fig.add_hline(y=mb2, annotation_text='Mean Bias: ' + str(round(mb2,1)), annotation_position='bottom left', line_dash='dash', line_color='black', line_width=2, opacity=1)
+                fig.add_hline(y=arms2, annotation_text='ARMS: ' + str(round(arms2,1)), annotation_position='top left', line_dash='dash',  line_width=2, opacity=1)
+                figlist.append(fig)
+                fignames.append(name)
+
+            one, two, three = st.columns(3)
+            with one:
+                fig_fitz = px.scatter(spo2so2long[fitzlight], 
+                                    x='value_so2', 
+                                    y='bias', 
+                                    color='fitzpatrick', 
+                                    title='Pulse oximeter bias, color = Fitzpatrick scale', 
+                                    color_discrete_map=fpcolors, 
+                                    trendline='ols',
+                                    trendline_scope='overall')
+                scatterops2(fig_fitz, 'fig fitz',fitzlight)
+                fig_fitz.update_layout(legend=dict(
+                    y=-0.5
+                ))
+                st.plotly_chart(fig_fitz, use_container_width=False)
+            
+            with two:
+                fig_fitz = px.scatter(spo2so2long[fitzmedium], 
+                                    x='value_so2', 
+                                    y='bias', 
+                                    color='fitzpatrick', 
+                                    title='Pulse oximeter bias, color = Fitzpatrick scale', 
+                                    color_discrete_map=fpcolors, 
+                                    trendline='ols',
+                                    trendline_scope='overall')
+                scatterops2(fig_fitz, 'fig fitz',fitzmedium)
+                fig_fitz.update_layout(legend=dict(
+                    y=-0.5
+                ))
+                st.plotly_chart(fig_fitz, use_container_width=False)
+
+
+            with three:
+                fig_fitz = px.scatter(spo2so2long[fitzdark], 
+                                    x='value_so2', 
+                                    y='bias', 
+                                    color='fitzpatrick', 
+                                    title='Pulse oximeter bias, color = Fitzpatrick scale', 
+                                    color_discrete_map=fpcolors, 
+                                    trendline='ols',
+                                    trendline_scope='overall')
+                scatterops2(fig_fitz, 'fig fitz', fitzdark)
+                fig_fitz.update_layout(legend=dict(
+                    y=-0.5
+                ))
+                st.plotly_chart(fig_fitz, use_container_width=False)
+
 
             one, two = st.columns(2)
             with one:
