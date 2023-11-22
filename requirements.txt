@@ -3,3 +3,4 @@ plotly==5.14.0
 pandas==1.5.2
 statsmodels==0.13.2
 streamlit==1.22.0
+pycap
