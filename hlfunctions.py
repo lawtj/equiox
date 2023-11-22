@@ -1,6 +1,6 @@
 # version 0.1 2023-11-21
 
-import config
+# import config
 from redcap import Project
 import math
 import numpy as np
