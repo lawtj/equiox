@@ -5,11 +5,9 @@ import plotly.io as pio
 import plotly.graph_objects as go
 import math
 import streamlit as st
+import requests
 from datetime import datetime as dt
-import io
-
-from hlfunctions import *
-from equiox_functions import *
+from io import StringIO
 
 def check_password():
     """Returns `True` if the user had one of the correct passwords."""
@@ -45,33 +43,32 @@ def check_password():
         return True
 
 if check_password():
-    #read dataframe
-    def load_project(key):
-        api_key = st.secrets[key]
-        api_url = 'https://redcap.ucsf.edu/api/'
-        project = Project(api_url, api_key)
-        df = project.export_records(format_type='df', record_type='flat', raw_or_label_headers='raw',raw_or_label='label', export_checkbox_labels=True, export_survey_fields=True)
-        return project, df
-
-    proj_files = load_project('REDCAP_FILES')[0]
-    f = io.BytesIO(proj_files.export_file(record='1', field='file')[0])
-    df = pd.read_csv(f)
-
-    # some columns are not read as the appropriate types
-    df['enrollment_date'] = pd.to_datetime(df['enrollment_date'])
-    df['days_since_enrollment'] = pd.to_timedelta(df['days_since_enrollment'])
-    #convert sample drawn timestamp to datetime
-    for i in capture_time_list:
-        df[i] = pd.to_datetime(df[i])
-    #convert from string to datetime
-    for i in sampleanalysis_time_list:
-        df[i] = pd.to_datetime(df[i])
-    df['sample_analysis_timedelta'] = pd.to_timedelta(df['sample_analysis_timedelta'])
-
+    data = {
+    'token': st.secrets['token'],
+    'content': 'record',
+    'format': 'csv',
+    'type': 'flat',
+    'csvDelimiter': '',
+    'rawOrLabel': 'label',
+    'rawOrLabelHeaders': 'raw',
+    'exportCheckboxLabel': 'false',
+    'exportSurveyFields': 'true',
+    'exportDataAccessGroups': 'false',
+    'returnFormat': 'json'
+}
+    r = requests.post('https://redcap.ucsf.edu/api/',data=data)
+    df = pd.read_csv(StringIO(r.text))
+    
     st.set_page_config(layout="wide")
+    pd.options.plotting.backend = "plotly"
+    # remove below when updated to streamlit 16
+    pio.templates.default = 'simple_white'
 
-    #######################################
-    ### streamlit functions ###############
+    legendict = dict(orientation='h', 
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1)
 
     def hist1(j): #for quantitative variables
         fig = px.histogram(df, x=j, text_auto=True)
@@ -91,12 +88,132 @@ if check_password():
         tab2 = pd.concat([taba, tabb], axis=1)
         st.caption('Table of ' + i + ' descriptives')
         st.table(tab2)
+        
+    spo2list = ['spo2','spo2_v2','spo2_v3','spo2_v4','spo2_v5','spo2_v6', 'spo2_v7','spo2_v8','spo2_v9','spo2_v10']
+    so2list = ['so2','so2_v2','so2_v3','so2_v4','so2_v5','so2_v6', 'so2_v7','so2_v8','so2_v9','so2_v10']
+    so2list_research = ['research_gem_so2','research_gem_so2_v2','research_gem_so2_v3','research_gem_so2_v4','research_gem_so2_v5','research_gem_so2_v6','research_gem_so2_v7','research_gem_so2_v8','research_gem_so2_v9','research_gem_so2_v10']
+    collectionreasonlist = ['abg_collection_reason',
+    'abg_collection_reason_v2',
+    'abg_collection_reason_v3',
+    'abg_collection_reason_v4',
+    'abg_collection_reason_v5',
+    'abg_collection_reason_v6',
+    'abg_collection_reason_v7',
+    'abg_collection_reason_v8',
+    'abg_collection_reason_v9',
+    'abg_collection_reason_v10']
+    artmaplist = ['art_map', 'art_map_v2', 'art_map_v3','art_map_v4','art_map_v5', 'art_map_v6', 'art_map_v7', 'art_map_v8','art_map_v9','art_map_v10']
+    stabilitylist = ['so2_period_of_stability', 'spo2_period_of_stability_v2', 'spo2_period_of_stability_v3', 'spo2_period_of_stability_v4', 'spo2_period_of_stability_v5', 'spo2_period_of_stability_v6', 'spo2_period_of_stability_v7', 'spo2_period_of_stability_v8', 'spo2_period_of_stability_v9', 'spo2_period_of_stability_v10']
+    pilist = ['perfusion', 'perfusion_v2', 'perfusion_v3', 'perfusion_v4', 'perfusion_v5',
+    'perfusion_v6', 'perfusion_v7', 'perfusion_v8', 'perfusion_v9', 'perfusion_v10']
+    massimo_pi_list = ['masimo_perfusion', 'masimo_perfusion_v2', 'masimo_perfusion_v3', 'masimo_perfusion_v4', 'masimo_perfusion_v5',
+    'masimo_perfusion_v6', 'masimo_perfusion_v7', 'masimo_perfusion_v8', 'masimo_perfusion_v9', 'masimo_perfusion_v10']
+    capture_time_list = ['capture_time','capture_time_v2','capture_time_v3','capture_time_v4','capture_time_v5',
+    'capture_time_v6','capture_time_v7','capture_time_v8','capture_time_v9','capture_time_v10']
+    sampleanalysis_time_list = ['time_of_so2_sample_analysi','so2_time_v2','so2_time_v3','so2_time_v4','so2_time_v5',
+    'so2_time_v6','so2_time_v7','so2_time_v8','so2_time_v9','so2_time_v10']
+    probelocation_list = ['probe_location', 'probe_location_v2', 'probe_location_v3', 'probe_location_v4', 'probe_location_v5', 
+                          'probe_location_v6', 'probe_location_v7', 'probe_location_v8', 'probe_location_v9', 'probe_location_v10']
+
+    msoldlist = ['ms_inner_arm','ms_fingernail','ms_surface_b','ms_surface_c','ms_forehead']
+    msnewlist = ['ms_new_inner_arm','ms_new_fingernail','ms_new_dorsal','ms_new_ventral','ms_new_forehead']
+
+    mslocations = ['Inner Arm','Fingernail','Dorsal','Ventral','Forehead']
+    monkvalues = ['A','B','C','D','E','F','G','H','I','J']
+    vlvalues = ["Light (1-15)", "Light Medium (16-21)","Dark Medium (22-28)","Dark (29-36)"]
+
+    vllist = ['vl_inner_arm','vl_fingernail','vl_surface_b','vl_surface_c']
+
+    #fitzpatrick scale color definitions
+    fpcolors = {'I - Pale white skin': '#f4d0b0',
+            'II - White skin':'#e8b48f',
+            'III - Light brown skin':'#d39e7c',
+            'IV - Moderate brown skin':'#bb7750',
+            'V - Dark brown skin':'#a55d2b',
+            'VI - Deeply pigmented dark brown to black skin': '#3c201d'}
     
-    legendict = dict(orientation='h', 
-    yanchor="bottom",
-    y=1.02,
-    xanchor="right",
-    x=1)
+    #monk scale color definitions
+    mscolors= {'A': '#f6ede4',
+               'B': '#f3e7db',
+               'C': '#f7ead0',
+               'D': '#eadaba',
+               'E': '#d7bd96',
+               'F': '#a07e56',
+               'G': '#825c43',
+               'H': '#604134',
+               'I': '#3a312a',
+               'J': '#292420'}
+
+    vlcolors={
+            'Light (1-15)': 'rgb(241,231,195)',
+            'Light Medium (16-21)': 'rgb(235,214,159)',
+            'Dark Medium (22-28)' : 'rgb(188,151,98)',
+            'Dark (29-36)': 'rgb(87,50,41)'
+        }
+    
+    def vlbins(row, var):
+        try: 
+            float(row[var])
+            if row[var] >= 1 and row[var] <=15:
+                return "Light (1-15)"
+            elif row[var] >= 16 and row[var] <=21:
+                return "Light Medium (16-21)"
+            elif row[var] >= 22 and row[var] <=28:
+                return "Dark Medium (22-28)"
+            elif row[var] >= 29 and row[var] <= 36:
+                return "Dark (29-36)"
+            else:
+                return np.nan
+        except ValueError:
+            return row[var]
+
+
+    ########################################
+    ############## data cleaning
+    ########################################
+    df['age'] = df.apply(lambda x: 89 if x['age']>=90 else x['age'], axis=1) #censor ages above 90 -> 89
+    # dfa = df #retain unaltered dataframe
+
+    #convert sample drawn timestamp to datetime
+    for i in capture_time_list:
+        df[i] = pd.to_datetime(df[i])
+
+    #convert enrollment date to datetime, and calculate days since enrollment
+    df['enrollment_date'] = pd.to_datetime(df['enrollment_date'])
+    df['days_since_enrollment'] = dt.now() - df['enrollment_date']
+
+    #########################
+    ######### convert sample run time to datetime
+    #sample run time is in redcap as hh:mm:ss, NOT a timestamp.
+    #assume sample run time is the same calendar day as the sample draw time and convert to datetime
+    for i in sampleanalysis_time_list:
+        df[i] = pd.to_datetime(df[i], format='%H:%M:%S', errors='coerce') #convert to datetime, defaults to 1900-1-1Thh:mm:ss
+
+    # now copy the DAY from capture_time and concat with the time from sample_analysis time
+    for i, j in zip(capture_time_list,sampleanalysis_time_list):
+        df[j] = df[i].dt.strftime("%Y/%m/%d")+'T'+df[j].dt.strftime('%H:%M:%S')
+    
+    #convert from string to datetime
+    for i in sampleanalysis_time_list:
+        df[i] = pd.to_datetime(df[i])
+    
+    #subtract start time from end time
+    # for i, j in zip(capture_time_list,sampleanalysis_time_list):
+    #     df['sample_analysis_timedelta'] = df[j] - df[i]
+    
+    #print(df['sample_analysis_timedelta'])
+
+    def create_timedelta(row):
+        for i, j in zip(capture_time_list,sampleanalysis_time_list):
+            if pd.notnull(row[j]):
+                return row[j] - row[i]
+            else:
+                continue
+
+    df['sample_analysis_timedelta'] = df.apply(create_timedelta, axis=1)
+    
+    ######### END section on convert sample_run to datetime
+    ##########################    
 
     #######################################
     ##### filter based on consent status ##
@@ -177,8 +294,8 @@ if check_password():
 
     # add fitzpatrick
     t1 = df[['study_id','fitzpatrick']]
-    fitzpatricklong = t1.melt(id_vars='study_id')
-    t1 = fitzpatricklong[(fitzpatricklong['value'].notna())]
+    fitzpatricklong = t1.melt(id_vars='study_id', value_name='fitzpatrick')
+    t1 = fitzpatricklong[(fitzpatricklong['fitzpatrick'].notna())]
     spo2so2long = spo2so2long.merge(t1, left_on='study_id_spo2', right_on='study_id')
     spo2so2long.drop(['variable', 'study_id'], axis=1)
 
@@ -651,14 +768,14 @@ if check_password():
         with one:
             st.subheader('Number of ABGs per participant')
             t1 = df['study_id'].value_counts()
-            fig = px.histogram(t1, x='count', text_auto=True)
+            fig = px.histogram(t1, x='study_id', text_auto=True)
             fig.update_layout(xaxis_title="# ABGs", yaxis_title="# subjects")
             st.plotly_chart(fig) 
             
         with two:
             ######## now compare spo2, and so2
             st.subheader('Paired Spo2/SO2 measurements')
-            fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'}, color='value_x')
+            fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'}, color='value')
             fig.add_shape(type="line",
                 x0=0, y0=0, x1=100, y1=100,
                 line=dict(
@@ -693,9 +810,9 @@ if check_password():
 
             arms = math.sqrt(spo2so2long['biassq'].sum()/len(spo2so2long['biassq']))
 
-            fitzlight = spo2so2long['value_y'].isin(['I - Pale white skin','II - White skin'])
-            fitzmedium= spo2so2long['value_y'].isin(['III - Light brown skin','IV - Moderate brown skin'])
-            fitzdark = spo2so2long['value_y'].isin(['V - Dark brown skin','VI - Deeply pigmented dark brown to black skin'])
+            fitzlight = spo2so2long['fitzpatrick'].isin(['I - Pale white skin','II - White skin'])
+            fitzmedium= spo2so2long['fitzpatrick'].isin(['III - Light brown skin','IV - Moderate brown skin'])
+            fitzdark = spo2so2long['fitzpatrick'].isin(['V - Dark brown skin','VI - Deeply pigmented dark brown to black skin'])
 
             def scatterops(fig, name):
                 fig.update_layout(legend=legendict, template='plotly_white', xaxis_title='Hemoximeter (SaO<sub>2</sub>, %)', yaxis_title='Bias (SpO<sub>2</sub> - SaO<sub>2</sub>,%)')
@@ -724,7 +841,7 @@ if check_password():
                 fig_fitz = px.scatter(spo2so2long[fitzlight], 
                                     x='value_so2', 
                                     y='bias', 
-                                    color='value_y', 
+                                    color='fitzpatrick', 
                                     title='Pulse oximeter bias, color = Fitzpatrick scale', 
                                     color_discrete_map=fpcolors, 
                                     trendline='ols',
@@ -739,7 +856,7 @@ if check_password():
                 fig_fitz = px.scatter(spo2so2long[fitzmedium], 
                                     x='value_so2', 
                                     y='bias', 
-                                    color='value_y', 
+                                    color='fitzpatrick', 
                                     title='Pulse oximeter bias, color = Fitzpatrick scale', 
                                     color_discrete_map=fpcolors, 
                                     trendline='ols',
@@ -755,7 +872,7 @@ if check_password():
                 fig_fitz = px.scatter(spo2so2long[fitzdark], 
                                     x='value_so2', 
                                     y='bias', 
-                                    color='value_y', 
+                                    color='fitzpatrick', 
                                     title='Pulse oximeter bias, color = Fitzpatrick scale', 
                                     color_discrete_map=fpcolors, 
                                     trendline='ols',
@@ -769,11 +886,11 @@ if check_password():
 
             one, two = st.columns(2)
             with one:
-                spo2so2long = spo2so2long.sort_values(by='value_y', ascending=True)
+                spo2so2long = spo2so2long.sort_values(by='fitzpatrick', ascending=True)
                 fig_fitz = px.scatter(spo2so2long, 
                                     x='value_so2', 
                                     y='bias', 
-                                    color='value_y', 
+                                    color='fitzpatrick', 
                                     title='Pulse oximeter bias, color = Fitzpatrick scale', 
                                     color_discrete_map=fpcolors, 
                                     trendline='ols',
@@ -807,7 +924,7 @@ if check_password():
             # for i,j in zip(figlist, fignames):
             #     i.write_image(j+'.png',width=700, height=500, engine='kaleido', scale=2)  
 
-            fig = px.violin(spo2so2long, y='pi', x='value_y', points='all')
+            fig = px.violin(spo2so2long, y='pi', x='fitzpatrick', points='all')
             fig.update_xaxes(categoryorder='category ascending')
             st.plotly_chart(fig)
 
@@ -944,7 +1061,7 @@ if check_password():
 
         def single_capture_time(row):
             for i in capture_time_list:
-                if row[i] is not np.nan:
+                if row[i] is not pd.NaT:
                     t1=row[i]
             return t1
         

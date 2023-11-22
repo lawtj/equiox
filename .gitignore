@@ -5,3 +5,4 @@ secrets.toml
 *.png
 *.jpg
 *.pyc
+config.py
