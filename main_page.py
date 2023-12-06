@@ -658,7 +658,10 @@ if check_password():
         with two:
             ######## now compare spo2, and so2
             st.subheader('Paired Spo2/SO2 measurements')
-            fig = px.scatter(spo2so2long, x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'}, color='value_x')
+            fig = px.scatter(spo2so2long[spo2so2long['value_x'] != 'None'], x='value_spo2', y='value_so2', labels={'value_spo2':'SpO2', 'value_so2':'SaO2'}, color='value_x',
+            # make >= 30 seconds green, < 30 seconds red, "Sensos present but no reading" gray, and "Data not recorded" purple
+            color_discrete_map={'>= 30 seconds':'darkgreen', '< 30 seconds':'red', 'Sensors present but no reading':'gray', 'Data not recorded':'purple'},
+                          ).update_layout(legend_title_text='Stability')
             fig.add_shape(type="line",
                 x0=0, y0=0, x1=100, y1=100,
                 line=dict(
