@@ -50,12 +50,14 @@ if check_password():
         api_key = st.secrets[key]
         api_url = 'https://redcap.ucsf.edu/api/'
         project = Project(api_url, api_key)
-        df = project.export_records(format_type='df', record_type='flat', raw_or_label_headers='raw',raw_or_label='label', export_checkbox_labels=True, export_survey_fields=True)
-        return project, df
+        #df = project.export_records(format_type='df', record_type='flat', raw_or_label_headers='raw',raw_or_label='label', export_checkbox_labels=True, export_survey_fields=True)
+        return project
 
-    proj_files = load_project('REDCAP_FILES')[0]
+    proj_files = load_project('REDCAP_FILES')
     f = io.BytesIO(proj_files.export_file(record='1', field='file')[0])
     df = pd.read_csv(f)
+
+    modified_date = proj_files.export_records(format_type='df', records=[1], fields=['modified'])
 
     # some columns are not read as the appropriate types
     df['enrollment_date'] = pd.to_datetime(df['enrollment_date'])
@@ -102,6 +104,7 @@ if check_password():
     ##### filter based on consent status ##
     #######################################
     st.title('EquiOx study dashboard')
+    st.caption('Last updated: ' + str(modified_date['modified'].item()))
 
     #all patients with data
     keeplist0 = df[((df['blood_sample_1_complete'] == 'Complete') & (df['skin_pigment_characterization_complete']=='Complete'))]['study_id'] 
@@ -232,9 +235,6 @@ if check_password():
     st.markdown("""---""")
 
 
-# st.subheader('Number of enrollments over time')
-#         fig = px.histogram(x=df['enrollment_date'], labels={'x':'Enrollment date'})
-#         st.plotly_chart(fig, use_container_width=True)
     ########################################
     ########################################
     ############## above the fold header
